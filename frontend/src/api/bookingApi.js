@@ -17,3 +17,20 @@ export const markBookingAsUnpaid = (id) =>
 
 export const verifyPayOSPayment = (orderCode) =>
   axiosClient.get(`/bookings/verify-payos-payment?orderCode=${orderCode}`)
+
+// ===== API MỚI CHO LUỒNG YÊU CẦU DỜI LỊCH =====
+
+// 1. User: Gửi yêu cầu xin đổi ngày/giờ
+export const requestEditBooking = (id, data) => 
+  axiosClient.patch(`/bookings/${id}/request-edit`, data)
+
+// 2. Admin: Duyệt yêu cầu đổi lịch
+export const approveEditBooking = (id) => 
+  axiosClient.patch(`/bookings/${id}/approve-edit`)
+
+// 3. Admin: Từ chối yêu cầu đổi lịch
+export const rejectEditBooking = (id) => 
+  axiosClient.patch(`/bookings/${id}/reject-edit`)
+
+export const requestCancelBooking = (id, data) => 
+  axiosClient.patch(`/bookings/${id}/request-cancel`, data)

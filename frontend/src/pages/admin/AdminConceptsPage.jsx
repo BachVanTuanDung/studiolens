@@ -9,6 +9,18 @@ import {
 } from '../../api/conceptApi'
 import { getServices } from '../../api/serviceApi'
 
+const generateSlug = (str) => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+};
+
 const categories = [
   { value: 'romantic', label: 'Romantic' },
   { value: 'vintage', label: 'Vintage' },
@@ -21,7 +33,6 @@ const categories = [
 
 const initialForm = {
   name: '',
-  slug: '',
   description: '',
   category: 'studio',
   tags: '',
@@ -69,13 +80,19 @@ const AdminConceptsPage = () => {
   const [editingId, setEditingId] = useState('')
   const [formData, setFormData] = useState(initialForm)
 
-  const [selectedFile, setSelectedFile] = useState(null)
-  const [imagePreview, setImagePreview] = useState('')
+  // Đổi từ 1 ảnh sang nhiều ảnh
+  const [images, setImages] = useState([])
+  const [selectedFiles, setSelectedFiles] = useState([])
+
   const [searchKeyword, setSearchKeyword] = useState('')
   const [featuredFilter, setFeaturedFilter] = useState('all')
+  
+  // Trình xem ảnh giống Gallery
   const [previewConcept, setPreviewConcept] = useState(null)
-
-  const fileInputRef = useRef(null)
+  const [viewerOpen, setViewerOpen] = useState(false)
+  const [viewerImages, setViewerImages] = useState([])
+  const [viewerIndex, setViewerIndex] = useState(0)
+  const [viewerSource, setViewerSource] = useState('concept')
 
   const fetchData = async () => {
     try {
@@ -96,6 +113,22 @@ const AdminConceptsPage = () => {
     fetchData()
   }, [])
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!viewerOpen) return
+      if (e.key === 'Escape') setViewerOpen(false)
+      if (e.key === 'ArrowLeft') {
+        setViewerIndex((prev) => (prev === 0 ? viewerImages.length - 1 : prev - 1))
+      }
+      if (e.key === 'ArrowRight') {
+        setViewerIndex((prev) => (prev === viewerImages.length - 1 ? 0 : prev + 1))
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [viewerOpen, viewerImages.length])
+
   const stats = useMemo(() => {
     return {
       total: concepts.length,
@@ -112,7 +145,6 @@ const AdminConceptsPage = () => {
       const matchesKeyword =
         !keyword ||
         concept.name?.toLowerCase().includes(keyword) ||
-        concept.slug?.toLowerCase().includes(keyword) ||
         concept.category?.toLowerCase().includes(keyword) ||
         concept.description?.toLowerCase().includes(keyword)
 
@@ -127,17 +159,21 @@ const AdminConceptsPage = () => {
     })
   }, [concepts, searchKeyword, featuredFilter])
 
+  const normalizeImage = (img, index) => {
+    const imageUrl = typeof img === 'string' ? img : img.url
+    const caption = typeof img === 'string' ? `Ảnh ${index + 1}` : img.caption || `Ảnh ${index + 1}`
+    return { ...(typeof img === 'string' ? {} : img), url: imageUrl, caption }
+  }
+
   const resetForm = () => {
     setFormData(initialForm)
     setEditingId('')
-    setSelectedFile(null)
-    setImagePreview('')
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    setImages([])
+    setSelectedFiles([])
   }
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
-
     setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
@@ -147,7 +183,6 @@ const AdminConceptsPage = () => {
   const handleServiceToggle = (serviceId) => {
     setFormData((prev) => {
       const exists = prev.relatedServices.includes(serviceId)
-
       return {
         ...prev,
         relatedServices: exists
@@ -158,23 +193,17 @@ const AdminConceptsPage = () => {
   }
 
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
+    const files = Array.from(e.target.files || [])
     const maxBytes = MAX_FILE_SIZE_MB * 1024 * 1024
 
-    if (file.size > maxBytes) {
-      toast.error(`Ảnh vượt quá ${MAX_FILE_SIZE_MB}MB, vui lòng chọn ảnh nhỏ hơn`)
-      return
+    const oversizedFiles = files.filter((file) => file.size > maxBytes)
+    const validFiles = files.filter((file) => file.size <= maxBytes)
+
+    if (oversizedFiles.length > 0) {
+      toast.error(`${oversizedFiles.length} ảnh vượt quá ${MAX_FILE_SIZE_MB}MB. Hệ thống sẽ bỏ qua các ảnh này.`)
     }
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Vui lòng chọn file ảnh hợp lệ')
-      return
-    }
-
-    setSelectedFile(file)
-    setImagePreview(URL.createObjectURL(file))
+    setSelectedFiles(validFiles)
   }
 
   const compressFile = async (file) => {
@@ -184,66 +213,76 @@ const AdminConceptsPage = () => {
         maxWidthOrHeight: 1920,
         useWebWorker: true,
       })
-
-      return new File([compressedFile], file.name, {
-        type: compressedFile.type,
-      })
+      return new File([compressedFile], file.name, { type: compressedFile.type })
     } catch (error) {
       console.error('Compress error:', error)
       return file
     }
   }
 
-  const uploadImageToCloudinary = async () => {
+  const uploadFilesToCloudinary = async () => {
     if (!CLOUD_NAME || !UPLOAD_PRESET) {
       toast.error('Thiếu cấu hình Cloudinary')
-      return imagePreview
+      return images
     }
 
-    if (!selectedFile) {
-      return imagePreview
+    if (selectedFiles.length === 0) {
+      toast.error('Vui lòng chọn ít nhất 1 ảnh')
+      return images
     }
 
     setUploading(true)
 
     try {
-      const file = await compressFile(selectedFile)
+      const uploaded = []
 
-      const body = new FormData()
-      body.append('file', file)
-      body.append('upload_preset', UPLOAD_PRESET)
-      body.append('folder', 'studiolens/concepts')
+      for (let i = 0; i < selectedFiles.length; i += 1) {
+        const originalFile = selectedFiles[i]
+        const file = await compressFile(originalFile)
 
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-        {
+        const body = new FormData()
+        body.append('file', file)
+        body.append('upload_preset', UPLOAD_PRESET)
+        body.append('folder', 'studiolens/concepts')
+
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
           method: 'POST',
           body,
-        }
-      )
+        })
 
-      const data = await res.json()
+        const data = await res.json()
 
-      if (!res.ok) {
-        throw new Error(data?.error?.message || 'Upload ảnh thất bại')
+        if (!res.ok) throw new Error(data?.error?.message || 'Upload ảnh thất bại')
+
+        uploaded.push({
+          url: data.secure_url,
+          publicId: data.public_id,
+          caption: originalFile.name,
+        })
       }
 
-      toast.success('Upload ảnh concept thành công')
-      return data.secure_url
+      const merged = [...images, ...uploaded]
+      setImages(merged)
+      setSelectedFiles([])
+      toast.success(`Đã upload ${uploaded.length} ảnh`)
+      return merged
     } catch (error) {
       console.error(error)
       toast.error(error.message || 'Upload ảnh thất bại')
-      return imagePreview
+      return images
     } finally {
       setUploading(false)
     }
+  }
+
+  const removeImage = (indexToRemove) => {
+    setImages((prev) => prev.filter((_, index) => index !== indexToRemove))
   }
 
   const handleEdit = (concept) => {
     setEditingId(concept._id)
     setFormData({
       name: concept.name || '',
-      slug: concept.slug || '',
       description: concept.description || '',
       category: concept.category || 'studio',
       tags: Array.isArray(concept.tags) ? concept.tags.join(', ') : '',
@@ -252,39 +291,43 @@ const AdminConceptsPage = () => {
         : [],
       isFeatured: !!concept.isFeatured,
     })
+    
+    // Nếu dữ liệu cũ là string (1 ảnh), chuyển thành mảng
+    const conceptImages = Array.isArray(concept.images) 
+      ? concept.images 
+      : concept.image ? [concept.image] : [];
 
-    setSelectedFile(null)
-    setImagePreview(concept.image || '')
-    if (fileInputRef.current) fileInputRef.current.value = ''
-
+    setImages(conceptImages)
+    setSelectedFiles([])
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!formData.name || !formData.slug || !formData.category) {
+    if (!formData.name || !formData.category) {
       toast.error('Vui lòng nhập đầy đủ các trường bắt buộc')
       return
     }
 
     try {
       setSaving(true)
+      let finalImages = images
 
-      let finalImage = imagePreview || ''
-
-      if (selectedFile) {
-        finalImage = await uploadImageToCloudinary()
+      if (selectedFiles.length > 0) {
+        finalImages = await uploadFilesToCloudinary()
       }
 
-      if (!finalImage) {
-        toast.error('Vui lòng chọn ảnh concept')
+      if (!finalImages.length) {
+        toast.error('Vui lòng upload ít nhất 1 ảnh concept')
         return
       }
 
       const payload = {
         ...formData,
-        image: finalImage,
+        slug: generateSlug(formData.name), // Tự động sinh slug từ tên Concept
+        image: finalImages[0]?.url || finalImages[0], // Truyền ảnh đầu tiên vào biến 'image' để backend không báo lỗi
+        images: finalImages, // Vẫn gửi mảng nhiều ảnh lên cho tính năng mới
         tags: formData.tags
           ? formData.tags.split(',').map((item) => item.trim()).filter(Boolean)
           : [],
@@ -293,10 +336,7 @@ const AdminConceptsPage = () => {
       if (editingId) {
         const res = await updateConcept(editingId, payload)
         const updated = res.data?.data
-
-        setConcepts((prev) =>
-          prev.map((item) => (item._id === editingId ? updated : item))
-        )
+        setConcepts((prev) => prev.map((item) => (item._id === editingId ? updated : item)))
         toast.success('Cập nhật concept thành công')
       } else {
         const res = await createConcept(payload)
@@ -318,7 +358,6 @@ const AdminConceptsPage = () => {
   const handleDelete = async (id) => {
     const confirmed = window.confirm('Bạn có chắc muốn ẩn concept này không?')
     if (!confirmed) return
-
     try {
       await deleteConcept(id)
       setConcepts((prev) => prev.filter((item) => item._id !== id))
@@ -328,6 +367,65 @@ const AdminConceptsPage = () => {
       toast.error(error.response?.data?.message || 'Ẩn concept thất bại')
     }
   }
+
+  // Chức năng Image Viewer
+  const openImageViewer = (imageList = [], startIndex = 0, source = 'concept') => {
+    const normalized = imageList.map((img, index) => normalizeImage(img, index))
+    setViewerImages(normalized)
+    setViewerIndex(startIndex)
+    setViewerSource(source)
+    setViewerOpen(true)
+  }
+
+  const closeImageViewer = () => setViewerOpen(false)
+  const showPrevImage = () => setViewerIndex((prev) => (prev === 0 ? viewerImages.length - 1 : prev - 1))
+  const showNextImage = () => setViewerIndex((prev) => (prev === viewerImages.length - 1 ? 0 : prev + 1))
+
+  const handleDeleteViewerImage = async () => {
+    if (!viewerImages.length) return
+    const confirmed = window.confirm('Bạn có chắc muốn xóa ảnh này không?')
+    if (!confirmed) return
+
+    const current = viewerImages[viewerIndex]
+
+    if (viewerSource === 'form') {
+      setImages((prev) => prev.filter((img, index) => normalizeImage(img, index).url !== current.url))
+      const nextImages = viewerImages.filter((_, index) => index !== viewerIndex)
+      setViewerImages(nextImages)
+      if (nextImages.length === 0) setViewerOpen(false)
+      else if (viewerIndex >= nextImages.length) setViewerIndex(nextImages.length - 1)
+      toast.success('Đã xóa ảnh khỏi form hiện tại')
+      return
+    }
+
+    if (viewerSource === 'concept' && previewConcept?._id) {
+      try {
+        const previewImages = previewConcept.images || (previewConcept.image ? [previewConcept.image] : [])
+        const nextConceptImages = previewImages.filter((img, index) => normalizeImage(img, index).url !== current.url)
+
+        await updateConcept(previewConcept._id, {
+          ...previewConcept,
+          images: nextConceptImages,
+        })
+
+        const updatedPreview = { ...previewConcept, images: nextConceptImages }
+        setPreviewConcept(updatedPreview)
+        setConcepts((prev) => prev.map((c) => (c._id === previewConcept._id ? updatedPreview : c)))
+
+        const nextImages = viewerImages.filter((_, index) => index !== viewerIndex)
+        setViewerImages(nextImages)
+        if (nextImages.length === 0) setViewerOpen(false)
+        else if (viewerIndex >= nextImages.length) setViewerIndex(nextImages.length - 1)
+
+        toast.success('Đã xóa ảnh khỏi concept')
+      } catch (error) {
+        console.error(error)
+        toast.error(error.response?.data?.message || 'Xóa ảnh thất bại')
+      }
+    }
+  }
+
+  const currentViewerImage = viewerImages[viewerIndex]
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 dark:text-white">
@@ -340,8 +438,8 @@ const AdminConceptsPage = () => {
             <div>
               <h1 className="text-5xl font-bold tracking-tight">Concept chụp ảnh</h1>
               <p className="mt-3 max-w-3xl text-neutral-600 dark:text-neutral-300">
-                Thêm, chỉnh sửa và quản lý các concept với ảnh upload trực tiếp từ máy tính,
-                giao diện đồng bộ với phần dịch vụ và trải nghiệm quản trị hiện đại hơn.
+                Thêm, chỉnh sửa và quản lý các concept với upload nhiều ảnh trực tiếp từ máy tính,
+                giao diện đồng bộ với gallery và trải nghiệm quản trị hiện đại.
               </p>
             </div>
 
@@ -359,7 +457,7 @@ const AdminConceptsPage = () => {
         </div>
 
         <div className="grid gap-8 xl:grid-cols-[460px_1fr]">
-          <div className="rounded-[28px] border border-neutral-200 bg-white p-6 shadow-sm transition duration-300 hover:shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="flex h-full flex-col rounded-[28px] border border-neutral-200 bg-white p-6 shadow-sm transition duration-300 hover:shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-yellow-700 dark:text-yellow-400">
@@ -377,130 +475,187 @@ const AdminConceptsPage = () => {
               ) : null}
             </div>
 
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-              <InputField label="Tên concept" required>
-                <input
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Ví dụ: Romantic Outdoor"
-                  className="w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
-                />
-              </InputField>
+            <form onSubmit={handleSubmit} className="mt-6 flex flex-1 flex-col space-y-4">
+              <div className="space-y-4">
+                <InputField label="Tên concept" required>
+                  <input
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder="Ví dụ: Romantic Outdoor"
+                    className="w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </InputField>
 
-              <InputField label="Slug" required>
-                <input
-                  name="slug"
-                  value={formData.slug}
-                  onChange={handleChange}
-                  placeholder="romantic-outdoor"
-                  className="w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
-                />
-              </InputField>
+                <InputField label="Danh mục" required>
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleChange}
+                    className="w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
+                  >
+                    {categories.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </InputField>
 
-              <InputField label="Ảnh concept từ máy tính">
                 <div className="rounded-2xl border border-dashed border-neutral-300 p-4 dark:border-neutral-700">
                   <p className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-200">
-                    Chọn 1 ảnh concept
+                    Chọn nhiều ảnh từ máy
                   </p>
                   <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
-                    Ảnh sẽ được nén và upload lên Cloudinary giống flow gallery và dịch vụ.
+                    Bạn có thể chọn và upload nhiều ảnh cho một concept để khách hàng dễ hình dung.
                   </p>
 
                   <input
-                    ref={fileInputRef}
                     type="file"
+                    multiple
                     accept="image/*"
                     onChange={handleFileChange}
                     className="w-full text-sm"
                   />
 
-                  <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950">
-                    {imagePreview ? (
-                      <img
-                        src={imagePreview}
-                        alt="Concept preview"
-                        className="h-56 w-full object-cover transition duration-500 hover:scale-[1.02]"
-                      />
-                    ) : (
-                      <div className="flex h-56 items-center justify-center text-sm text-neutral-400">
-                        Chưa chọn ảnh concept
-                      </div>
-                    )}
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={uploadFilesToCloudinary}
+                      disabled={uploading || selectedFiles.length === 0}
+                      className="rounded-2xl border border-neutral-200 px-4 py-2.5 text-sm font-semibold transition hover:bg-neutral-100 disabled:opacity-60 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                    >
+                      {uploading ? 'Đang upload...' : 'Upload ảnh'}
+                    </button>
+
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                      Đã chọn {selectedFiles.length} file
+                    </span>
                   </div>
                 </div>
-              </InputField>
 
-              <InputField label="Danh mục" required>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
-                >
-                  {categories.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </InputField>
+                {images.length > 0 && (
+                  <div className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-700">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
+                          Ảnh đã upload: {images.length}
+                        </p>
+                      </div>
+                    </div>
 
-              <InputField label="Mô tả concept">
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Mô tả ngắn gọn về concept..."
-                  className="min-h-[120px] w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
-                />
-              </InputField>
+                    <div className="mt-4 flex items-center gap-4 rounded-2xl bg-neutral-50 p-3 dark:bg-neutral-950">
+                      <button
+                        type="button"
+                        onClick={() => openImageViewer(images, 0, 'form')}
+                        className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border dark:border-neutral-700"
+                      >
+                        <img
+                          src={images[0]?.url || images[0]}
+                          alt="Cover"
+                          className="h-full w-full object-cover"
+                        />
+                        <div className="absolute bottom-1 right-1 rounded bg-black/70 px-2 py-1 text-[10px] text-white">
+                          {images.length} ảnh
+                        </div>
+                      </button>
 
-              <InputField label="Tags">
-                <input
-                  name="tags"
-                  value={formData.tags}
-                  onChange={handleChange}
-                  placeholder="romantic, outdoor, sunset..."
-                  className="w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
-                />
-              </InputField>
+                      <div className="flex-1">
+                        <p className="font-medium dark:text-white">
+                          {formData.name || 'Concept chưa đặt tên'}
+                        </p>
+                        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                          Ảnh đầu tiên đang được dùng làm ảnh đại diện.
+                        </p>
+                      </div>
+                    </div>
 
-              <div>
-                <p className="mb-3 text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                  Liên kết dịch vụ
-                </p>
+                    <div className="mt-4 max-h-52 space-y-2 overflow-y-auto pr-1">
+                      {images.map((img, index) => {
+                        const imgObj = normalizeImage(img, index)
+                        return (
+                          <div
+                            key={imgObj.publicId || imgObj.url || index}
+                            className="flex items-center justify-between rounded-xl border border-neutral-200 p-2 dark:border-neutral-700"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => openImageViewer(images, index, 'form')}
+                              className="line-clamp-1 pr-3 text-left text-sm text-neutral-700 hover:underline dark:text-neutral-200"
+                            >
+                              {imgObj.caption}
+                            </button>
 
-                <div className="max-h-60 space-y-2 overflow-y-auto rounded-2xl border border-neutral-200 p-4 dark:border-neutral-700 dark:bg-neutral-950">
-                  {services.map((service) => (
-                    <label
-                      key={service._id}
-                      className="flex items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-sm transition hover:border-neutral-200 hover:bg-neutral-50 dark:hover:border-neutral-700 dark:hover:bg-neutral-900"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={formData.relatedServices.includes(service._id)}
-                        onChange={() => handleServiceToggle(service._id)}
-                        className="h-4 w-4 rounded"
-                      />
-                      <span>{service.name}</span>
-                    </label>
-                  ))}
+                            <button
+                              type="button"
+                              onClick={() => removeImage(index)}
+                              className="text-xs font-semibold text-red-600"
+                            >
+                              Xóa
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <InputField label="Mô tả concept">
+                  <textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    placeholder="Mô tả ngắn gọn về concept..."
+                    className="min-h-[120px] w-full break-words whitespace-pre-wrap rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </InputField>
+
+                <InputField label="Tags">
+                  <input
+                    name="tags"
+                    value={formData.tags}
+                    onChange={handleChange}
+                    placeholder="romantic, outdoor, sunset..."
+                    className="w-full break-words rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </InputField>
+
+                <div>
+                  <p className="mb-3 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                    Liên kết dịch vụ
+                  </p>
+
+                  <div className="max-h-60 space-y-2 overflow-y-auto rounded-2xl border border-neutral-200 p-4 dark:border-neutral-700 dark:bg-neutral-950">
+                    {services.map((service) => (
+                      <label
+                        key={service._id}
+                        className="flex items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-sm transition hover:border-neutral-200 hover:bg-neutral-50 dark:hover:border-neutral-700 dark:hover:bg-neutral-900"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.relatedServices.includes(service._id)}
+                          onChange={() => handleServiceToggle(service._id)}
+                          className="h-4 w-4 rounded"
+                        />
+                        <span>{service.name}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
+
+                <label className="flex items-center gap-3 rounded-2xl border border-neutral-200 px-4 py-4 text-sm text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
+                  <input
+                    type="checkbox"
+                    name="isFeatured"
+                    checked={formData.isFeatured}
+                    onChange={handleChange}
+                    className="h-4 w-4 rounded"
+                  />
+                  Đánh dấu là concept nổi bật
+                </label>
               </div>
 
-              <label className="flex items-center gap-3 rounded-2xl border border-neutral-200 px-4 py-4 text-sm text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
-                <input
-                  type="checkbox"
-                  name="isFeatured"
-                  checked={formData.isFeatured}
-                  onChange={handleChange}
-                  className="h-4 w-4 rounded"
-                />
-                Đánh dấu là concept nổi bật
-              </label>
-
-              <div className="flex gap-3 pt-2">
+              <div className="mt-auto flex gap-3 pt-6">
                 <button
                   type="submit"
                   disabled={saving || uploading}
@@ -541,7 +696,7 @@ const AdminConceptsPage = () => {
                   type="text"
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
-                  placeholder="Tìm theo tên, slug, category..."
+                  placeholder="Tìm theo tên, category..."
                   className="rounded-2xl border border-neutral-200 px-4 py-3 text-sm transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
                 />
 
@@ -566,93 +721,102 @@ const AdminConceptsPage = () => {
                 Không có concept nào phù hợp.
               </div>
             ) : (
-              <div className="mt-6 grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
-                {filteredConcepts.map((concept) => (
-                  <div
-                    key={concept._id}
-                    className="group overflow-hidden rounded-[24px] border border-neutral-200 bg-gradient-to-br from-white to-neutral-50 p-4 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg dark:border-neutral-800 dark:from-neutral-900 dark:to-neutral-950"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setPreviewConcept(concept)}
-                      className="block w-full overflow-hidden rounded-2xl"
+              <div className="mt-6 grid gap-5 lg:grid-cols-2 xl:grid-cols-2">
+                {filteredConcepts.map((concept) => {
+                  // Đảm bảo tương thích ngược nếu data cũ chỉ có 1 ảnh string
+                  const conceptImages = Array.isArray(concept.images) ? concept.images : concept.image ? [concept.image] : []
+                  const coverImage = conceptImages[0]?.url || conceptImages[0]
+
+                  return (
+                    <div
+                      key={concept._id}
+                      className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-neutral-200 bg-gradient-to-br from-white to-neutral-50 p-4 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg dark:border-neutral-800 dark:from-neutral-900 dark:to-neutral-950"
                     >
-                      <img
-                        src={concept.image}
-                        alt={concept.name}
-                        className="h-56 w-full object-cover transition duration-500 group-hover:scale-105"
-                      />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewConcept(concept)}
+                        className="relative block w-full overflow-hidden rounded-2xl"
+                      >
+                        <img
+                          src={coverImage}
+                          alt={concept.name}
+                          className="h-56 w-full object-cover transition duration-500 group-hover:scale-105"
+                        />
+                        <div className="absolute bottom-2 right-2 rounded-lg bg-black/70 px-2 py-1 text-xs font-semibold text-white backdrop-blur-md">
+                          {conceptImages.length} ảnh
+                        </div>
+                      </button>
 
-                    <div className="mt-4">
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs uppercase tracking-widest text-yellow-700 dark:text-yellow-400">
-                          {concept.category}
-                        </p>
-                        {concept.isFeatured && (
-                          <span className="rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-300 dark:ring-yellow-500/30">
-                            Nổi bật
-                          </span>
-                        )}
-                      </div>
-
-                      <h3 className="mt-2 text-lg font-semibold">{concept.name}</h3>
-
-                      <p className="mt-2 line-clamp-3 text-sm text-neutral-600 dark:text-neutral-300">
-                        {concept.description}
-                      </p>
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {concept.tags?.map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded-full border border-neutral-200 px-2.5 py-1 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"
-                          >
-                            #{tag}
-                          </span>
-                        ))}
-                      </div>
-
-                      <div className="mt-4">
-                        <p className="text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                          Dịch vụ liên kết
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {concept.relatedServices?.length > 0 ? (
-                            concept.relatedServices.map((service) => (
-                              <span
-                                key={service._id || service}
-                                className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
-                              >
-                                {service.name || service}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                              Chưa liên kết dịch vụ
+                      <div className="mt-4 flex flex-1 flex-col">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs uppercase tracking-widest text-yellow-700 dark:text-yellow-400">
+                            {concept.category}
+                          </p>
+                          {concept.isFeatured && (
+                            <span className="rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-300 dark:ring-yellow-500/30">
+                              Nổi bật
                             </span>
                           )}
                         </div>
-                      </div>
 
-                      <div className="mt-5 flex gap-2">
-                        <button
-                          onClick={() => handleEdit(concept)}
-                          className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium transition hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-                        >
-                          Sửa
-                        </button>
+                        <h3 className="break-words mt-2 text-lg font-semibold">{concept.name}</h3>
 
-                        <button
-                          onClick={() => handleDelete(concept._id)}
-                          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
-                        >
-                          Ẩn
-                        </button>
+                        <p className="mt-2 line-clamp-3 break-words whitespace-pre-wrap text-sm text-neutral-600 dark:text-neutral-300">
+                          {concept.description}
+                        </p>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {concept.tags?.map((tag) => (
+                            <span
+                              key={tag}
+                              className="break-words rounded-full border border-neutral-200 px-2.5 py-1 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"
+                            >
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+
+                        <div className="mt-4">
+                          <p className="text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                            Dịch vụ liên kết
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {concept.relatedServices?.length > 0 ? (
+                              concept.relatedServices.map((service) => (
+                                <span
+                                  key={service._id || service}
+                                  className="break-words rounded-full bg-neutral-100 px-2.5 py-1 text-xs text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+                                >
+                                  {service.name || service}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                                Chưa liên kết dịch vụ
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-auto flex justify-end gap-2 pt-5">
+                          <button
+                            onClick={() => handleEdit(concept)}
+                            className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium transition hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                          >
+                            Sửa
+                          </button>
+
+                          <button
+                            onClick={() => handleDelete(concept._id)}
+                            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+                          >
+                            Ẩn
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
@@ -661,92 +825,127 @@ const AdminConceptsPage = () => {
 
       {previewConcept && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-5xl overflow-hidden rounded-3xl bg-white dark:bg-neutral-900">
+          <div className="max-h-[90vh] w-full max-w-6xl overflow-hidden rounded-3xl bg-white dark:bg-neutral-900">
             <div className="flex items-center justify-between border-b p-5 dark:border-neutral-800">
               <div>
-                <h2 className="text-2xl font-bold dark:text-white">{previewConcept.name}</h2>
+                <h2 className="text-2xl font-bold dark:text-white">
+                  {previewConcept.name}
+                </h2>
                 <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                  {previewConcept.category}
+                  {previewConcept.category} • Tổng ảnh: {(previewConcept.images || (previewConcept.image ? [previewConcept.image] : [])).length}
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={() => setPreviewConcept(null)}
-                className="rounded-xl border px-4 py-2 text-sm font-medium dark:border-neutral-700 dark:text-white"
+                className="rounded-2xl border px-4 py-2 text-sm font-medium dark:border-neutral-700 dark:text-white"
               >
                 Đóng
               </button>
             </div>
 
-            <div className="grid gap-0 lg:grid-cols-[1fr_0.95fr]">
-              <div className="bg-neutral-100 dark:bg-neutral-950">
-                <img
-                  src={previewConcept.image}
-                  alt={previewConcept.name}
-                  className="h-full max-h-[560px] w-full object-cover"
-                />
-              </div>
-
-              <div className="p-6">
-                <div className="flex flex-wrap items-center gap-2">
-                  {previewConcept.isFeatured && (
-                    <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-800 ring-1 ring-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-300 dark:ring-yellow-500/30">
-                      Concept nổi bật
-                    </span>
-                  )}
-                </div>
-
-                <p className="mt-4 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
-                  {previewConcept.description || 'Không có mô tả'}
-                </p>
-
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {previewConcept.tags?.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mt-6">
-                  <p className="text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                    Dịch vụ liên kết
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {previewConcept.relatedServices?.length > 0 ? (
-                      previewConcept.relatedServices.map((service) => (
-                        <span
-                          key={service._id || service}
-                          className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
-                        >
-                          {service.name || service}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-sm text-neutral-500 dark:text-neutral-400">
-                        Chưa liên kết dịch vụ
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-6">
+            {/* Render Grid Ảnh của Concept */}
+            <div className="grid max-h-[75vh] grid-cols-2 gap-3 overflow-y-auto p-4 sm:grid-cols-3 lg:grid-cols-5">
+              {(previewConcept.images || (previewConcept.image ? [previewConcept.image] : [])).map((img, index) => {
+                const imgObj = normalizeImage(img, index)
+                return (
                   <button
                     type="button"
-                    onClick={() => {
-                      setPreviewConcept(null)
-                      handleEdit(previewConcept)
-                    }}
-                    className="rounded-2xl bg-yellow-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-yellow-800"
+                    key={imgObj.publicId || imgObj.url || index}
+                    onClick={() => openImageViewer(previewConcept.images || [previewConcept.image], index, 'concept')}
+                    className="overflow-hidden rounded-2xl border text-left transition hover:shadow-md dark:border-neutral-700"
                   >
-                    Chỉnh sửa concept này
+                    <img
+                      src={imgObj.url}
+                      alt={imgObj.caption}
+                      className="h-40 w-full object-cover"
+                    />
+                    <div className="p-2">
+                      <p className="line-clamp-1 text-xs text-neutral-600 dark:text-neutral-300">
+                        {imgObj.caption}
+                      </p>
+                    </div>
                   </button>
-                </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trình xem ảnh Fullscreen */}
+      {viewerOpen && viewerImages.length > 0 && (
+        <div className="fixed inset-0 z-[60] bg-black/90 p-4">
+          <div className="mx-auto flex h-full max-w-6xl flex-col">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="text-white">
+                <p className="text-sm text-neutral-300">
+                  {viewerIndex + 1} / {viewerImages.length}
+                </p>
+                <h3 className="text-lg font-semibold">
+                  {currentViewerImage?.caption || 'Xem ảnh'}
+                </h3>
               </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDeleteViewerImage}
+                  className="rounded-2xl bg-red-600 px-4 py-2 text-sm font-medium text-white"
+                >
+                  Xóa ảnh
+                </button>
+
+                <button
+                  type="button"
+                  onClick={closeImageViewer}
+                  className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+
+            <div className="relative flex flex-1 items-center justify-center">
+              <button
+                type="button"
+                onClick={showPrevImage}
+                className="absolute left-2 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-2xl text-white transition hover:bg-white/20"
+              >
+                ←
+              </button>
+
+              <img
+                src={currentViewerImage?.url}
+                alt={currentViewerImage?.caption || 'preview'}
+                className="max-h-[75vh] max-w-full rounded-xl object-contain"
+              />
+
+              <button
+                type="button"
+                onClick={showNextImage}
+                className="absolute right-2 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-2xl text-white transition hover:bg-white/20"
+              >
+                →
+              </button>
+            </div>
+
+            <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
+              {viewerImages.map((img, index) => (
+                <button
+                  key={`${img.url}-${index}`}
+                  type="button"
+                  onClick={() => setViewerIndex(index)}
+                  className={`overflow-hidden rounded-lg border ${
+                    viewerIndex === index
+                      ? 'border-yellow-500 ring-2 ring-yellow-500'
+                      : 'border-white/20'
+                  }`}
+                >
+                  <img src={img.url} alt={img.caption} className="h-16 w-16 object-cover" />
+                </button>
+              ))}
             </div>
           </div>
         </div>

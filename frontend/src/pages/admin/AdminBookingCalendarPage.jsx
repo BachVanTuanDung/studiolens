@@ -4,13 +4,11 @@ import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import {
-  deleteBooking,
   getAllBookings,
   updateBooking,
   confirmPayment,
   markBookingAsUnpaid,
 } from '../../api/bookingApi'
-import { BOOKING_SESSIONS } from '../../utils/bookingSessions'
 
 const statusOptions = ['pending', 'confirmed', 'completed', 'cancelled']
 const sessionOptions = ['morning', 'afternoon', 'evening']
@@ -92,19 +90,6 @@ const sessionMeta = {
   },
 }
 
-const getShiftedSessions = (booking, targetSession) => {
-  const currentSessions = normalizeBookingSessions(booking)
-  const sessionCount = Math.min(Math.max(currentSessions.length, 1), sessionOptions.length)
-  const targetIndex = sessionOptions.indexOf(targetSession)
-
-  if (targetIndex === -1) return currentSessions
-  if (sessionCount === 1) return [targetSession]
-  if (sessionCount >= sessionOptions.length) return [...sessionOptions]
-
-  const startIndex = Math.min(targetIndex, sessionOptions.length - sessionCount)
-  return sessionOptions.slice(startIndex, startIndex + sessionCount)
-}
-
 const normalizeSessions = (value) => {
   const raw = Array.isArray(value) ? value : value ? [value] : []
   return [...new Set(raw)].filter((item) => sessionMeta[item])
@@ -166,13 +151,6 @@ const getSessionDotClass = (booking, sessionKey = '') => {
   return key ? sessionMeta[key].dotClass : 'bg-neutral-400'
 }
 
-const formatDateLocal = (date) => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
 const toEventDateTime = (date, time) => {
   if (!date || !time) return null
   return `${date}T${time}:00`
@@ -183,12 +161,6 @@ const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')}đ`
 const formatDateTimeVN = (value) => {
   if (!value) return '--'
   return new Date(value).toLocaleString('vi-VN')
-}
-
-const formatDisplayDate = (value) => {
-  if (!value) return '--'
-  const [year, month, day] = value.split('-')
-  return `${day}/${month}/${year}`
 }
 
 const StatCard = ({ label, value, tone = 'neutral' }) => {
@@ -237,25 +209,23 @@ const InfoLine = ({ label, value }) => (
   </div>
 )
 
-const QuickEditModal = ({
+const UpdateStatusModal = ({
   booking,
   formData,
   setFormData,
   onClose,
   onSave,
   saving,
-  deleting,
-  onDelete,
 }) => {
   if (!booking) return null
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 p-4 backdrop-blur-sm">
-      <div className="mx-auto mt-8 max-w-2xl rounded-[28px] border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-800 dark:bg-neutral-900 dark:text-white">
+      <div className="mx-auto mt-8 max-w-xl rounded-[28px] border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-800 dark:bg-neutral-900 dark:text-white">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.25em] text-yellow-700 dark:text-yellow-400">
-              Chỉnh nhanh booking
+              Cập nhật trạng thái
             </p>
             <h3 className="mt-2 text-2xl font-bold">{booking.bookingCode || 'Booking'}</h3>
             <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
@@ -273,61 +243,9 @@ const QuickEditModal = ({
           </button>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="mt-6 grid gap-4">
           <div>
-            <label className="mb-2 block text-sm font-medium">Ngày chụp</label>
-            <input
-              type="date"
-              value={formData.date}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, date: e.target.value }))
-              }
-              className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium">Buổi chụp</label>
-            <div className="grid gap-2">
-              {sessionOptions.map((session) => {
-                const checked = normalizeSessions(formData.sessions).includes(session)
-
-                return (
-                  <button
-                    key={session}
-                    type="button"
-                    onClick={() => {
-                      setFormData((prev) => {
-                        const current = normalizeSessions(prev.sessions)
-                        const next = current.includes(session)
-                          ? current.filter((item) => item !== session)
-                          : [...current, session]
-
-                        const safeNext = next.length ? next : [session]
-
-                        return {
-                          ...prev,
-                          session: safeNext[0],
-                          sessions: safeNext,
-                        }
-                      })
-                    }}
-                    className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-sm transition ${
-                      checked
-                        ? 'border-yellow-500 bg-yellow-50 text-yellow-900 dark:bg-yellow-500/10 dark:text-yellow-200'
-                        : 'border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950'
-                    }`}
-                  >
-                    <span>{sessionMeta[session].label}</span>
-                    <span>{checked ? '✓' : ''}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium">Trạng thái</label>
+            <label className="mb-2 block text-sm font-medium">Trạng thái booking</label>
             <select
               value={formData.status}
               onChange={(e) =>
@@ -343,8 +261,8 @@ const QuickEditModal = ({
             </select>
           </div>
 
-          <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium">Ghi chú</label>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Ghi chú của admin</label>
             <textarea
               value={formData.note}
               onChange={(e) =>
@@ -360,15 +278,6 @@ const QuickEditModal = ({
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
           <button
             type="button"
-            onClick={onDelete}
-            disabled={deleting}
-            className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
-          >
-            {deleting ? 'Đang xóa...' : 'Xóa booking'}
-          </button>
-
-          <button
-            type="button"
             onClick={onSave}
             disabled={saving}
             className="rounded-2xl bg-yellow-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-yellow-800 disabled:opacity-60"
@@ -381,127 +290,38 @@ const QuickEditModal = ({
   )
 }
 
-const ConfirmRescheduleModal = ({ action, onClose, onConfirm, confirming }) => {
-  if (!action) return null
-
-  const bookingCode = action.booking?.bookingCode || 'Booking'
-  const customerName =
-    action.booking?.customerName || action.booking?.userId?.name || 'Khách hàng'
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/55 p-4 backdrop-blur-sm">
-      <div className="mx-auto mt-12 max-w-xl rounded-[28px] border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-800 dark:bg-neutral-900 dark:text-white">
-        <p className="text-xs uppercase tracking-[0.28em] text-yellow-700 dark:text-yellow-400">
-          Xác nhận đổi lịch
-        </p>
-
-        <h3 className="mt-3 text-2xl font-bold">Bạn có chắc muốn đổi booking này?</h3>
-
-        <p className="mt-3 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
-          Hệ thống sẽ cập nhật booking <span className="font-semibold">{bookingCode}</span> của{' '}
-          <span className="font-semibold">{customerName}</span>.
-        </p>
-
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-950">
-            <p className="text-xs uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
-              Từ
-            </p>
-            <p className="mt-2 text-sm font-semibold">
-              {formatDisplayDate(action.from.date)} •{' '}
-              {getSessionLabelFromArray(action.from.sessions)}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900/40 dark:bg-yellow-900/20">
-            <p className="text-xs uppercase tracking-[0.2em] text-yellow-700 dark:text-yellow-300">
-              Sang
-            </p>
-            <p className="mt-2 text-sm font-semibold text-yellow-900 dark:text-yellow-100">
-              {formatDisplayDate(action.to.date)} •{' '}
-              {getSessionLabelFromArray(action.to.sessions)}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-6 rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600 dark:bg-neutral-950 dark:text-neutral-300">
-          Nếu buổi chụp mới đã có người đặt, hệ thống sẽ từ chối cập nhật và giữ nguyên booking cũ.
-        </div>
-
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-2xl border border-neutral-200 px-5 py-3 text-sm font-semibold transition hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-          >
-            Hủy
-          </button>
-
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={confirming}
-            className="rounded-2xl bg-yellow-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-yellow-800 disabled:opacity-60"
-          >
-            {confirming ? 'Đang cập nhật...' : 'Xác nhận đổi lịch'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const PlannerBookingCard = ({ booking, onOpen, onDragStart }) => {
-  const customerName = booking.customerName || booking.userId?.name || 'Khách'
-  const serviceName = booking.serviceName || booking.serviceId?.name || 'Booking'
-  const status = statusMeta[booking.status] || statusMeta.pending
-
-  return (
-    <div
-      draggable
-      onDragStart={(e) => onDragStart(e, booking)}
-      onClick={() => onOpen(booking)}
-      className="cursor-grab rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing dark:border-neutral-800 dark:bg-neutral-950"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-xs uppercase tracking-[0.22em] text-yellow-700 dark:text-yellow-400">
-            {booking.bookingCode || 'BOOKING'}
-          </p>
-          <p className="mt-2 truncate text-sm font-semibold text-neutral-900 dark:text-white">
-            {customerName}
-          </p>
-          <p className="mt-1 truncate text-xs text-neutral-500 dark:text-neutral-400">
-            {serviceName}
-          </p>
-        </div>
-
-        <span
-          className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${status.badgeClass}`}
-        >
-          {status.label}
-        </span>
-      </div>
-
-      <div className="mt-3 flex items-center justify-between gap-3 text-xs text-neutral-500 dark:text-neutral-400">
-        <span>{booking.time || '--'}</span>
-        <span>{formatMoney(booking.totalPrice)}</span>
-      </div>
-    </div>
-  )
-}
-
 const renderEventContent = (eventInfo) => {
   const booking = eventInfo.event.extendedProps.booking
   const customerName = booking.customerName || booking.userId?.name || 'Khách'
+  const isCancelled = booking.status === 'cancelled'
 
   return (
-    <div className="group overflow-hidden rounded-lg px-2 py-1.5 text-[11px] leading-tight transition duration-200">
-      <div className="flex items-center gap-1.5">
+    <div 
+      className={`group relative overflow-hidden rounded-lg px-2 py-1.5 text-[11px] leading-tight transition duration-200 ${
+        isCancelled ? 'opacity-50' : ''
+      }`}
+    >
+      {/* Hiệu ứng gạch chéo màu đỏ cho lịch đã hủy */}
+{isCancelled && (
+  <div 
+    className="absolute inset-0 pointer-events-none"
+    style={{
+      backgroundImage: 'linear-gradient(to top left, rgba(220, 38, 38, 0) 48%, rgba(220, 38, 38, 0.6) 50%, rgba(220, 38, 38, 0) 52%)'
+    }}
+  />
+)}
+
+      <div className="flex items-center gap-1.5 font-bold">
         <span className={`h-2 w-2 rounded-full ${getSessionDotClass(booking, eventInfo.event.extendedProps.sessionKey)}`} />
-        <span className="font-bold">{sessionMeta[eventInfo.event.extendedProps.sessionKey]?.shortLabel || getSessionShortLabel(booking)}</span>
+        <span>
+          {sessionMeta[eventInfo.event.extendedProps.sessionKey]?.shortLabel || getSessionShortLabel(booking)}
+        </span>
       </div>
-      <div className="mt-1 truncate font-medium">{customerName}</div>
+      
+      <div className="mt-1 truncate font-medium">
+        {customerName}
+      </div>
+      
       <div className="truncate opacity-90">
         {booking.serviceName || booking.serviceId?.name || 'Booking'}
       </div>
@@ -514,21 +334,13 @@ const AdminBookingCalendarPage = () => {
   const [loading, setLoading] = useState(true)
   const [selectedBooking, setSelectedBooking] = useState(null)
   const [editingBooking, setEditingBooking] = useState(null)
-  const [plannerDate, setPlannerDate] = useState(formatDateLocal(new Date()))
-  const [draggedBooking, setDraggedBooking] = useState(null)
-  const [dropSessionHighlight, setDropSessionHighlight] = useState('')
-  const [pendingReschedule, setPendingReschedule] = useState(null)
 
   const [editForm, setEditForm] = useState({
-    date: '',
-    session: 'morning',
-    sessions: ['morning'],
     status: 'pending',
     note: '',
   })
 
   const [updatingId, setUpdatingId] = useState('')
-  const [deletingId, setDeletingId] = useState('')
   const [paymentUpdatingId, setPaymentUpdatingId] = useState('')
 
   const [searchKeyword, setSearchKeyword] = useState('')
@@ -588,31 +400,6 @@ const AdminBookingCalendarPage = () => {
     })
   }, [bookings, searchKeyword, filterStatus, filterSession, filterDate])
 
-  const plannerBookings = useMemo(() => {
-    return filteredBookings.filter((booking) => booking.date === plannerDate)
-  }, [filteredBookings, plannerDate])
-
-  const plannerGrouped = useMemo(() => {
-    const groups = {
-      morning: [],
-      afternoon: [],
-      evening: [],
-    }
-
-    plannerBookings.forEach((booking) => {
-      const sessions = normalizeBookingSessions(booking)
-      sessions.forEach((key) => {
-        if (groups[key]) groups[key].push(booking)
-      })
-    })
-
-    Object.keys(groups).forEach((key) => {
-      groups[key].sort((a, b) => (a.time || '').localeCompare(b.time || ''))
-    })
-
-    return groups
-  }, [plannerBookings])
-
   const calendarEvents = useMemo(() => {
     return filteredBookings
       .flatMap((booking) => {
@@ -640,47 +427,16 @@ const AdminBookingCalendarPage = () => {
   }, [filteredBookings])
 
   const openQuickEdit = (booking) => {
-    const inferredSession = inferSessionFromBooking(booking) || 'morning'
-
     setEditingBooking(booking)
     setEditForm({
-      date: booking.date || '',
-      session: inferredSession,
-      sessions: normalizeBookingSessions(booking),
       status: booking.status || 'pending',
       note: booking.note || '',
     })
   }
 
-  const applyUpdatedBooking = (updatedBooking, fallbackChanges = {}) => {
-    const mergedBooking = updatedBooking || {
-      ...selectedBooking,
-      ...fallbackChanges,
-    }
-
-    setBookings((prev) =>
-      prev.map((item) =>
-        item._id === mergedBooking._id ? mergedBooking : item
-      )
-    )
-
-    if (selectedBooking?._id === mergedBooking._id) {
-      setSelectedBooking(mergedBooking)
-    }
-
-    if (editingBooking?._id === mergedBooking._id) {
-      setEditingBooking(mergedBooking)
-    }
-  }
-
   const handleEventClick = (info) => {
     const booking = info.event.extendedProps.booking
     setSelectedBooking(booking)
-    setPlannerDate(booking.date)
-  }
-
-  const handleDateClick = (arg) => {
-    setPlannerDate(arg.dateStr)
   }
 
   const handleChangeStatus = async (bookingId, status) => {
@@ -723,9 +479,6 @@ const AdminBookingCalendarPage = () => {
       setUpdatingId(editingBooking._id)
 
       const res = await updateBooking(editingBooking._id, {
-        date: editForm.date,
-        session: normalizeSessions(editForm.sessions)[0] || editForm.session,
-        sessions: normalizeSessions(editForm.sessions),
         status: editForm.status,
         note: editForm.note,
       })
@@ -747,133 +500,6 @@ const AdminBookingCalendarPage = () => {
     } finally {
       setUpdatingId('')
     }
-  }
-
-  const handleDeleteBooking = async (bookingId) => {
-    const confirmed = window.confirm('Bạn có chắc muốn xóa booking này không?')
-    if (!confirmed) return
-
-    try {
-      setDeletingId(bookingId)
-      await deleteBooking(bookingId)
-
-      setBookings((prev) => prev.filter((item) => item._id !== bookingId))
-
-      if (selectedBooking?._id === bookingId) {
-        setSelectedBooking(null)
-      }
-
-      if (editingBooking?._id === bookingId) {
-        setEditingBooking(null)
-      }
-
-      toast.success('Xóa booking thành công')
-    } catch (error) {
-      console.error(error)
-      toast.error(error.response?.data?.message || 'Xóa booking thất bại')
-    } finally {
-      setDeletingId('')
-    }
-  }
-
-  const askForReschedule = (booking, toDate, toSessions, revertCallback = null) => {
-    const currentSessions = normalizeBookingSessions(booking)
-    const nextSessions = normalizeSessions(toSessions)
-    const from = {
-      date: booking.date,
-      sessions: currentSessions,
-    }
-    const to = {
-      date: toDate,
-      sessions: nextSessions.length ? nextSessions : currentSessions,
-    }
-
-    if (from.date === to.date && JSON.stringify(from.sessions) === JSON.stringify(to.sessions)) {
-      if (revertCallback) revertCallback()
-      return
-    }
-
-    setPendingReschedule({
-      booking,
-      from,
-      to,
-      revertCallback,
-    })
-  }
-
-  const confirmReschedule = async () => {
-    if (!pendingReschedule) return
-
-    const { booking, to, revertCallback } = pendingReschedule
-
-    try {
-      setUpdatingId(booking._id)
-
-      const res = await updateBooking(booking._id, {
-        date: to.date,
-        session: normalizeSessions(to.sessions)[0],
-        sessions: normalizeSessions(to.sessions),
-      })
-
-      const updated = res.data?.booking
-
-      setBookings((prev) =>
-        prev.map((item) =>
-          item._id === booking._id
-            ? updated || { ...item, date: to.date, session: normalizeSessions(to.sessions)[0], sessions: normalizeSessions(to.sessions) }
-            : item
-        )
-      )
-
-      if (selectedBooking?._id === booking._id) {
-        setSelectedBooking(updated || { ...booking, date: to.date, session: normalizeSessions(to.sessions)[0], sessions: normalizeSessions(to.sessions) })
-      }
-
-      if (editingBooking?._id === booking._id) {
-        setEditingBooking(updated || { ...booking, date: to.date, session: normalizeSessions(to.sessions)[0], sessions: normalizeSessions(to.sessions) })
-      }
-
-      setPlannerDate(to.date)
-      toast.success('Đã đổi lịch booking thành công')
-    } catch (error) {
-      console.error(error)
-      if (revertCallback) revertCallback()
-      toast.error(
-        error.response?.data?.message || 'Không thể chuyển booking sang lịch mới'
-      )
-    } finally {
-      setUpdatingId('')
-      setPendingReschedule(null)
-      setDraggedBooking(null)
-      setDropSessionHighlight('')
-    }
-  }
-
-  const cancelReschedule = () => {
-    if (pendingReschedule?.revertCallback) {
-      pendingReschedule.revertCallback()
-    }
-    setPendingReschedule(null)
-    setDraggedBooking(null)
-    setDropSessionHighlight('')
-  }
-
-  const handleEventDrop = async (info) => {
-    const booking = info.event.extendedProps.booking
-    const newDate = formatDateLocal(info.event.start)
-    askForReschedule(booking, newDate, normalizeBookingSessions(booking), () => info.revert())
-  }
-
-  const handlePlannerDragStart = (event, booking) => {
-    event.dataTransfer.setData('text/plain', booking._id)
-    setDraggedBooking(booking)
-  }
-
-  const handlePlannerDrop = (sessionKey) => {
-    if (!draggedBooking) return
-
-    const nextSessions = getShiftedSessions(draggedBooking, sessionKey)
-    askForReschedule(draggedBooking, plannerDate, nextSessions)
   }
 
   const handleConfirmPayment = async (bookingId) => {
@@ -970,13 +596,12 @@ const AdminBookingCalendarPage = () => {
                 Booking Calendar
               </h1>
               <p className="mt-3 max-w-3xl text-neutral-600 dark:text-neutral-300">
-                Theo dõi lịch chụp theo tháng, kéo thả đổi ngày trên calendar, và điều phối nhanh
-                buổi sáng / chiều / tối bằng bảng planner theo ngày.
+                Theo dõi lịch trình chụp theo tháng của Studio. Nhấn vào các sự kiện trên lịch để xem chi tiết.
               </p>
             </div>
 
             <div className="inline-flex rounded-full border border-yellow-200 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-800 dark:border-yellow-900/40 dark:bg-yellow-900/20 dark:text-yellow-300">
-              Drag & Drop reschedule
+              Chỉ xem lịch (Read-only Calendar)
             </div>
           </div>
         </div>
@@ -1065,7 +690,7 @@ const AdminBookingCalendarPage = () => {
                         Lịch booking theo tháng
                       </h2>
                       <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                        Kéo thả booking để đổi ngày. Bấm vào ngày hoặc booking để đồng bộ planner bên dưới.
+                        Bấm vào một sự kiện trên lịch để xem chi tiết bên phải.
                       </p>
                     </div>
 
@@ -1079,9 +704,11 @@ const AdminBookingCalendarPage = () => {
                       ref={calendarRef}
                       plugins={[dayGridPlugin, interactionPlugin]}
                       initialView="dayGridMonth"
-                      editable
+                      firstDay={1} // <--- QUAN TRỌNG: Tuần bắt đầu từ Thứ 2, Chủ nhật sẽ ra cuối
+                      dayHeaderFormat={{ weekday: 'short' }} // Hiển thị T2, T3, T4... CN
+                      editable={false} // Khóa kéo thả
                       selectable
-                      eventStartEditable
+                      eventStartEditable={false} // Khóa kéo thả event
                       headerToolbar={{
                         left: 'prev,next today',
                         center: 'title',
@@ -1090,8 +717,6 @@ const AdminBookingCalendarPage = () => {
                       events={calendarEvents}
                       eventClick={handleEventClick}
                       eventContent={renderEventContent}
-                      eventDrop={handleEventDrop}
-                      dateClick={handleDateClick}
                       height="auto"
                       locale="vi"
                       buttonText={{
@@ -1099,95 +724,6 @@ const AdminBookingCalendarPage = () => {
                         month: 'Tháng',
                       }}
                     />
-                  </div>
-                </div>
-
-                <div className="rounded-[28px] border border-neutral-200 bg-white p-5 shadow-sm transition duration-300 hover:shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
-                  <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.25em] text-yellow-700 dark:text-yellow-400">
-                        Planner theo ngày
-                      </p>
-                      <h2 className="mt-2 text-2xl font-semibold text-neutral-900 dark:text-white">
-                        Điều phối booking trong ngày {formatDisplayDate(plannerDate)}
-                      </h2>
-                      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-                        Kéo booking giữa 3 cột để đổi buổi chụp. Hệ thống sẽ hỏi xác nhận trước khi cập nhật.
-                      </p>
-                    </div>
-
-                    <input
-                      type="date"
-                      value={plannerDate}
-                      onChange={(e) => setPlannerDate(e.target.value)}
-                      className="rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
-                    />
-                  </div>
-
-                  <div className="grid gap-4 xl:grid-cols-3">
-                    {BOOKING_SESSIONS.map((sessionItem) => {
-                      const sessionKey = sessionItem.key
-                      const bookingsInSession = plannerGrouped[sessionKey] || []
-                      const isDropActive = dropSessionHighlight === sessionKey
-
-                      return (
-                        <div
-                          key={sessionKey}
-                          onDragOver={(e) => {
-                            e.preventDefault()
-                            setDropSessionHighlight(sessionKey)
-                          }}
-                          onDragLeave={() => setDropSessionHighlight('')}
-                          onDrop={(e) => {
-                            e.preventDefault()
-                            setDropSessionHighlight('')
-                            handlePlannerDrop(sessionKey)
-                          }}
-                          className={`rounded-[24px] border p-4 transition ${
-                            isDropActive
-                              ? 'border-yellow-400 bg-yellow-50 dark:border-yellow-500 dark:bg-yellow-900/20'
-                              : 'border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950'
-                          }`}
-                        >
-                          <div className="mb-4 flex items-center justify-between gap-3">
-                            <div>
-                              <span
-                                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${sessionMeta[sessionKey].colorClass}`}
-                              >
-                                {sessionItem.label}
-                              </span>
-                              <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-                                {sessionItem.description}
-                              </p>
-                            </div>
-
-                            <div className="rounded-2xl bg-white px-3 py-2 text-sm font-semibold shadow-sm dark:bg-neutral-900">
-                              {bookingsInSession.length}
-                            </div>
-                          </div>
-
-                          <div className="space-y-3 min-h-[220px]">
-                            {bookingsInSession.length === 0 ? (
-                              <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-white/70 px-4 text-center text-sm text-neutral-400 dark:border-neutral-700 dark:bg-neutral-900/60 dark:text-neutral-500">
-                                Kéo booking vào đây
-                              </div>
-                            ) : (
-                              bookingsInSession.map((booking) => (
-                                <PlannerBookingCard
-                                  key={booking._id}
-                                  booking={booking}
-                                  onOpen={(item) => {
-                                    setSelectedBooking(item)
-                                    openQuickEdit(item)
-                                  }}
-                                  onDragStart={handlePlannerDragStart}
-                                />
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
                   </div>
                 </div>
               </div>
@@ -1217,10 +753,26 @@ const AdminBookingCalendarPage = () => {
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-neutral-100 text-2xl dark:bg-neutral-800">
                       📅
                     </div>
-                    Chọn một booking trên lịch hoặc trong planner để xem chi tiết.
+                    Chọn một booking trên lịch để xem chi tiết.
                   </div>
                 ) : (
                   <div className="mt-6 space-y-4">
+                    {/* Hiển thị banner nếu đang có yêu cầu sửa/hủy lịch */}
+                    {selectedBooking.editRequest?.status === 'pending' && (
+                      <div className={`p-4 rounded-2xl border ${
+                        selectedBooking.editRequest.requestType === 'cancel' 
+                        ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-900/40 dark:text-red-200' 
+                        : 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-900/40 dark:text-blue-200'
+                      }`}>
+                        <p className="font-bold flex items-center gap-2">
+                          {selectedBooking.editRequest.requestType === 'cancel' ? '🚨 YÊU CẦU HỦY LỊCH' : '🔔 YÊU CẦU DỜI LỊCH'}
+                        </p>
+                        <p className="mt-1 text-sm opacity-90">
+                          Khách đã gửi yêu cầu. Vui lòng vào trang <span className="font-semibold cursor-pointer underline">Quản lý booking (List)</span> để duyệt hoặc từ chối.
+                        </p>
+                      </div>
+                    )}
+
                     <InfoCard label="Mã booking">
                       <p className="font-semibold text-neutral-900 dark:text-white">
                         {selectedBooking.bookingCode || '--'}
@@ -1303,7 +855,7 @@ const AdminBookingCalendarPage = () => {
                         onClick={() => openQuickEdit(selectedBooking)}
                         className="rounded-2xl bg-yellow-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-yellow-800"
                       >
-                        Chỉnh nhanh booking
+                        Cập nhật trạng thái / Ghi chú
                       </button>
 
                       <div className="grid gap-3 sm:grid-cols-2">
@@ -1357,22 +909,13 @@ const AdminBookingCalendarPage = () => {
               </div>
             </div>
 
-            <QuickEditModal
+            <UpdateStatusModal
               booking={editingBooking}
               formData={editForm}
               setFormData={setEditForm}
               onClose={() => setEditingBooking(null)}
               onSave={handleQuickSave}
               saving={updatingId === editingBooking?._id}
-              deleting={deletingId === editingBooking?._id}
-              onDelete={() => handleDeleteBooking(editingBooking?._id)}
-            />
-
-            <ConfirmRescheduleModal
-              action={pendingReschedule}
-              onClose={cancelReschedule}
-              onConfirm={confirmReschedule}
-              confirming={updatingId === pendingReschedule?.booking?._id}
             />
 
             <style>{`

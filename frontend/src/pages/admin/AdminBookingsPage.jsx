@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   confirmPayment,
-  deleteBooking,
   getAllBookings,
   markBookingAsUnpaid,
   updateBooking,
+  approveEditBooking,
+  rejectEditBooking,
 } from '../../api/bookingApi'
 
 const statusOptions = ['pending', 'confirmed', 'completed', 'cancelled']
@@ -22,14 +23,17 @@ const normalizeBookingSessions = (booking) => {
   if (Array.isArray(booking.sessions) && booking.sessions.length > 0) {
     return booking.sessions
   }
-
   return booking.session ? [booking.session] : []
+}
+
+const getSessionLabelFromArray = (sessions = []) => {
+  const labels = sessions.map((item) => sessionLabelMap[item]).filter(Boolean)
+  return labels.length ? labels.join(', ') : '--'
 }
 
 const getSessionLabel = (booking) => {
   const sessions = normalizeBookingSessions(booking)
-  const labels = sessions.map((item) => sessionLabelMap[item]).filter(Boolean)
-  return labels.length ? labels.join(', ') : '--'
+  return getSessionLabelFromArray(sessions)
 }
 
 const getSessionBadgeClass = (booking) => {
@@ -57,41 +61,34 @@ const getSessionBadgeClass = (booking) => {
 const statusMap = {
   pending: {
     label: 'Chờ xác nhận',
-    className:
-      'bg-yellow-100 text-yellow-800 ring-1 ring-inset ring-yellow-200 dark:bg-yellow-500/15 dark:text-yellow-300 dark:ring-yellow-500/30',
+    className: 'bg-yellow-100 text-yellow-800 ring-1 ring-inset ring-yellow-200 dark:bg-yellow-500/15 dark:text-yellow-300 dark:ring-yellow-500/30',
   },
   confirmed: {
     label: 'Đã xác nhận',
-    className:
-      'bg-blue-100 text-blue-800 ring-1 ring-inset ring-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:ring-blue-500/30',
+    className: 'bg-blue-100 text-blue-800 ring-1 ring-inset ring-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:ring-blue-500/30',
   },
   completed: {
     label: 'Hoàn thành',
-    className:
-      'bg-green-100 text-green-800 ring-1 ring-inset ring-green-200 dark:bg-green-500/15 dark:text-green-300 dark:ring-green-500/30',
+    className: 'bg-green-100 text-green-800 ring-1 ring-inset ring-green-200 dark:bg-green-500/15 dark:text-green-300 dark:ring-green-500/30',
   },
   cancelled: {
     label: 'Đã hủy',
-    className:
-      'bg-red-100 text-red-800 ring-1 ring-inset ring-red-200 dark:bg-red-500/15 dark:text-red-300 dark:ring-red-500/30',
+    className: 'bg-red-100 text-red-800 ring-1 ring-inset ring-red-200 dark:bg-red-500/15 dark:text-red-300 dark:ring-red-500/30',
   },
 }
 
 const paymentStatusMap = {
   unpaid: {
     label: 'Chưa thanh toán',
-    className:
-      'bg-neutral-100 text-neutral-700 ring-1 ring-inset ring-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:ring-neutral-700',
+    className: 'bg-neutral-100 text-neutral-700 ring-1 ring-inset ring-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:ring-neutral-700',
   },
   pending: {
     label: 'Đang xử lý',
-    className:
-      'bg-yellow-100 text-yellow-800 ring-1 ring-inset ring-yellow-200 dark:bg-yellow-500/15 dark:text-yellow-300 dark:ring-yellow-500/30',
+    className: 'bg-yellow-100 text-yellow-800 ring-1 ring-inset ring-yellow-200 dark:bg-yellow-500/15 dark:text-yellow-300 dark:ring-yellow-500/30',
   },
   paid: {
     label: 'Đã thanh toán',
-    className:
-      'bg-green-100 text-green-800 ring-1 ring-inset ring-green-200 dark:bg-green-500/15 dark:text-green-300 dark:ring-green-500/30',
+    className: 'bg-green-100 text-green-800 ring-1 ring-inset ring-green-200 dark:bg-green-500/15 dark:text-green-300 dark:ring-green-500/30',
   },
 }
 
@@ -141,8 +138,8 @@ const AdminBookingsPage = () => {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState('')
-  const [deletingId, setDeletingId] = useState('')
   const [paymentUpdatingId, setPaymentUpdatingId] = useState('')
+  const [approvingEditId, setApprovingEditId] = useState('')
   const [bookingFilter, setBookingFilter] = useState('all')
   const [paymentFilter, setPaymentFilter] = useState('all')
   const [search, setSearch] = useState('')
@@ -179,6 +176,41 @@ const AdminBookingsPage = () => {
       toast.error(error?.response?.data?.message || 'Cập nhật trạng thái thất bại')
     } finally {
       setUpdatingId('')
+    }
+  }
+
+  const handleApproveEdit = async (bookingId) => {
+    try {
+      setApprovingEditId(bookingId)
+      const res = await approveEditBooking(bookingId)
+      setBookings((prev) =>
+        prev.map((item) => (item._id === bookingId ? res.data.booking || item : item))
+      )
+      toast.success('Đã duyệt yêu cầu thành công')
+    } catch (error) {
+      console.error(error)
+      toast.error(error?.response?.data?.message || 'Duyệt yêu cầu thất bại')
+    } finally {
+      setApprovingEditId('')
+    }
+  }
+
+  const handleRejectEdit = async (bookingId) => {
+    const confirmed = window.confirm('Bạn có chắc muốn từ chối yêu cầu này?')
+    if (!confirmed) return
+
+    try {
+      setApprovingEditId(bookingId)
+      const res = await rejectEditBooking(bookingId)
+      setBookings((prev) =>
+        prev.map((item) => (item._id === bookingId ? res.data.booking || item : item))
+      )
+      toast.success('Đã từ chối yêu cầu')
+    } catch (error) {
+      console.error(error)
+      toast.error(error?.response?.data?.message || 'Từ chối thất bại')
+    } finally {
+      setApprovingEditId('')
     }
   }
 
@@ -227,27 +259,6 @@ const AdminBookingsPage = () => {
       toast.error(error?.response?.data?.message || 'Cập nhật thanh toán thất bại')
     } finally {
       setPaymentUpdatingId('')
-    }
-  }
-
-  const handleDeleteBooking = async (bookingId) => {
-    const confirmed = window.confirm('Bạn có chắc muốn xóa booking này không?')
-    if (!confirmed) return
-
-    try {
-      setDeletingId(bookingId)
-      await deleteBooking(bookingId)
-      const next = bookings.filter((item) => item._id !== bookingId)
-      setBookings(next)
-      if (expandedId === bookingId) {
-        setExpandedId(next[0]?._id || '')
-      }
-      toast.success('Xóa booking thành công')
-    } catch (error) {
-      console.error(error)
-      toast.error(error?.response?.data?.message || 'Xóa booking thất bại')
-    } finally {
-      setDeletingId('')
     }
   }
 
@@ -468,6 +479,17 @@ const AdminBookingsPage = () => {
                           >
                             {paymentInfo.label}
                           </span>
+                          
+                          {/* Indicator có yêu cầu sửa/hủy lịch */}
+                          {booking.editRequest?.status === 'pending' && (
+                            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${
+                              booking.editRequest?.requestType === 'cancel' 
+                              ? 'bg-red-100 text-red-800 ring-red-300 dark:bg-red-500/20 dark:text-red-300' 
+                              : 'bg-blue-100 text-blue-800 ring-blue-300 dark:bg-blue-500/20 dark:text-blue-300'
+                            }`}>
+                              {booking.editRequest?.requestType === 'cancel' ? '🚨 Yêu cầu hủy lịch' : '🔔 Có yêu cầu dời lịch'}
+                            </span>
+                          )}
                         </div>
 
                         <div className="mt-2 flex flex-col gap-1 xl:flex-row xl:flex-wrap xl:items-center xl:gap-x-6">
@@ -507,6 +529,69 @@ const AdminBookingsPage = () => {
 
                   {isExpanded ? (
                     <div className="border-t border-neutral-100 p-6 dark:border-neutral-800">
+                      
+                      {/* Bảng duyệt yêu cầu dời/hủy lịch */}
+                      {booking.editRequest?.status === 'pending' && (
+                        <div className={`mb-6 rounded-2xl border p-5 ${
+                          booking.editRequest.requestType === 'cancel'
+                          ? 'border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-900/20'
+                          : 'border-blue-200 bg-blue-50 dark:border-blue-900/50 dark:bg-blue-900/20'
+                        }`}>
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                              <h4 className={`font-semibold flex items-center gap-2 ${
+                                booking.editRequest.requestType === 'cancel' ? 'text-red-900 dark:text-red-100' : 'text-blue-900 dark:text-blue-100'
+                              }`}>
+                                {booking.editRequest.requestType === 'cancel' ? '🚨 Khách hàng yêu cầu hủy lịch' : '🔔 Khách hàng yêu cầu dời lịch'}
+                              </h4>
+                              
+                              {booking.editRequest.requestType === 'reschedule' ? (
+                                <p className="mt-2 text-sm text-blue-800 dark:text-blue-200">
+                                  Muốn đổi sang ngày: <span className="font-bold">{booking.editRequest.date}</span>
+                                  <br />
+                                  Buổi chụp: <span className="font-bold">{getSessionLabelFromArray(booking.editRequest.sessions)}</span>
+                                </p>
+                              ) : null}
+
+                              {booking.editRequest.note && (
+                                <p className={`mt-2 text-sm italic border-l-2 pl-3 ${
+                                  booking.editRequest.requestType === 'cancel' 
+                                  ? 'text-red-800/80 border-red-300 dark:text-red-200/80' 
+                                  : 'text-blue-800/80 border-blue-300 dark:text-blue-200/80'
+                                }`}>
+                                  Lý do: {booking.editRequest.note}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                              <button
+                                type="button"
+                                onClick={() => handleRejectEdit(booking._id)}
+                                disabled={approvingEditId === booking._id}
+                                className="rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-neutral-700 border border-neutral-300 transition hover:bg-neutral-50 dark:bg-neutral-800 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-60"
+                              >
+                                Từ chối
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleApproveEdit(booking._id)}
+                                disabled={approvingEditId === booking._id}
+                                className={`rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition shadow-sm disabled:opacity-60 ${
+                                  booking.editRequest.requestType === 'cancel'
+                                  ? 'bg-red-600 hover:bg-red-700'
+                                  : 'bg-blue-600 hover:bg-blue-700'
+                                }`}
+                              >
+                                {approvingEditId === booking._id 
+                                  ? 'Đang xử lý...' 
+                                  : booking.editRequest.requestType === 'cancel' ? 'Duyệt hủy lịch' : 'Duyệt lịch mới'
+                                }
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
                         <div>
                           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -537,7 +622,7 @@ const AdminBookingsPage = () => {
                             <p className="text-sm text-neutral-500 dark:text-neutral-400">
                               Ghi chú
                             </p>
-                            <p className="mt-2 text-neutral-700 dark:text-neutral-300">
+                            <p className="mt-2 text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">
                               {booking.note || 'Không có ghi chú'}
                             </p>
                           </div>
@@ -624,7 +709,7 @@ const AdminBookingsPage = () => {
                             </div>
                           ) : null}
 
-                          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                          <div className="mt-5 grid gap-3 sm:grid-cols-1">
                             {isCashPayment && !isPaid ? (
                               <button
                                 type="button"
@@ -648,19 +733,10 @@ const AdminBookingsPage = () => {
                                   : 'Chuyển về chưa thanh toán'}
                               </button>
                             ) : (
-                              <div className="rounded-2xl border border-dashed border-neutral-300 px-4 py-3 text-sm text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
+                              <div className="rounded-2xl border border-dashed border-neutral-300 px-4 py-3 text-sm text-neutral-500 text-center dark:border-neutral-700 dark:text-neutral-400">
                                 Thanh toán online sẽ tự cập nhật
                               </div>
                             )}
-
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteBooking(booking._id)}
-                              disabled={deletingId === booking._id}
-                              className="rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
-                            >
-                              {deletingId === booking._id ? 'Đang xóa...' : 'Xóa booking'}
-                            </button>
                           </div>
                         </div>
                       </div>

@@ -10,9 +10,7 @@ import {
 
 const initialForm = {
   name: '',
-  slug: '',
   price: '',
-  duration: '',
   description: '',
   category: 'portrait',
   features: '',
@@ -115,7 +113,6 @@ const AdminServicesPage = () => {
       const matchesKeyword =
         !keyword ||
         service.name?.toLowerCase().includes(keyword) ||
-        service.slug?.toLowerCase().includes(keyword) ||
         service.category?.toLowerCase().includes(keyword) ||
         service.description?.toLowerCase().includes(keyword)
 
@@ -232,9 +229,7 @@ const AdminServicesPage = () => {
     setEditingId(service._id)
     setFormData({
       name: service.name || '',
-      slug: service.slug || '',
       price: service.price || '',
-      duration: service.duration || '',
       description: service.description || '',
       category: service.category || 'portrait',
       features: Array.isArray(service.features) ? service.features.join(', ') : '',
@@ -251,8 +246,8 @@ const AdminServicesPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!formData.name || !formData.slug || !formData.price || !formData.category) {
-      toast.error('Vui lòng nhập đầy đủ các trường bắt buộc')
+    if (!formData.name || !formData.category || !formData.price) {
+      toast.error('Vui lòng nhập đầy đủ Tên, Giá và Danh mục')
       return
     }
 
@@ -267,9 +262,7 @@ const AdminServicesPage = () => {
 
       const payload = {
         name: formData.name,
-        slug: formData.slug,
         price: Number(formData.price),
-        duration: Number(formData.duration || 0),
         description: formData.description,
         category: formData.category,
         thumbnail: finalThumbnail,
@@ -344,7 +337,7 @@ const AdminServicesPage = () => {
         </div>
 
         <div className="grid gap-8 xl:grid-cols-[460px_1fr]">
-          <div className="rounded-[28px] border border-neutral-200 bg-white p-6 shadow-sm transition duration-300 hover:shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="flex h-full flex-col rounded-[28px] border border-neutral-200 bg-white p-6 shadow-sm transition duration-300 hover:shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-yellow-700 dark:text-yellow-400">
@@ -362,131 +355,112 @@ const AdminServicesPage = () => {
               ) : null}
             </div>
 
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-              <InputField label="Tên dịch vụ" required>
-                <input
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Ví dụ: Chụp ảnh cưới ngoại cảnh"
-                  className="w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
-                />
-              </InputField>
-
-              <InputField label="Slug" required>
-                <input
-                  name="slug"
-                  value={formData.slug}
-                  onChange={handleChange}
-                  placeholder="chup-anh-cuoi-ngoai-canh"
-                  className="w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
-                />
-              </InputField>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <InputField label="Giá" required>
+            <form onSubmit={handleSubmit} className="mt-6 flex flex-1 flex-col space-y-4">
+              <div className="space-y-4">
+                <InputField label="Tên dịch vụ" required>
                   <input
-                    name="price"
-                    type="number"
-                    value={formData.price}
+                    name="name"
+                    value={formData.name}
                     onChange={handleChange}
-                    placeholder="3000000"
+                    placeholder="Ví dụ: Chụp ảnh cưới ngoại cảnh"
                     className="w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
                   />
                 </InputField>
 
-                <InputField label="Thời lượng (phút)">
-                  <input
-                    name="duration"
-                    type="number"
-                    value={formData.duration}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <InputField label="Giá" required>
+                    <input
+                      name="price"
+                      type="number"
+                      value={formData.price}
+                      onChange={handleChange}
+                      placeholder="3000000"
+                      className="w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
+                    />
+                  </InputField>
+
+                  <InputField label="Danh mục" required>
+                    <select
+                      name="category"
+                      value={formData.category}
+                      onChange={handleChange}
+                      className="w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
+                    >
+                      {CATEGORY_OPTIONS.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </InputField>
+                </div>
+
+                <InputField label="Thumbnail từ máy tính">
+                  <div className="rounded-2xl border border-dashed border-neutral-300 p-4 dark:border-neutral-700">
+                    <p className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-200">
+                      Chọn 1 ảnh thumbnail
+                    </p>
+                    <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
+                      Ảnh sẽ được nén và upload lên Cloudinary, giống flow gallery.
+                    </p>
+
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="w-full text-sm"
+                    />
+
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950">
+                      {thumbnailPreview ? (
+                        <img
+                          src={thumbnailPreview}
+                          alt="Thumbnail preview"
+                          className="h-56 w-full object-cover transition duration-500 hover:scale-[1.02]"
+                        />
+                      ) : (
+                        <div className="flex h-56 items-center justify-center text-sm text-neutral-400">
+                          Chưa chọn ảnh thumbnail
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </InputField>
+
+                <InputField label="Mô tả dịch vụ">
+                  <textarea
+                    name="description"
+                    value={formData.description}
                     onChange={handleChange}
-                    placeholder="120"
-                    className="w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
+                    placeholder="Mô tả ngắn gọn về dịch vụ..."
+                    className="min-h-[120px] w-full break-words whitespace-pre-wrap rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
                   />
                 </InputField>
+
+                <InputField label="Tính năng nổi bật">
+                  <textarea
+                    name="features"
+                    value={formData.features}
+                    onChange={handleChange}
+                    placeholder="Makeup, Chỉnh màu, In ảnh... (cách nhau bởi dấu phẩy)"
+                    className="min-h-[100px] w-full break-words whitespace-pre-wrap rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </InputField>
+
+                <label className="flex items-center gap-3 rounded-2xl border border-neutral-200 px-4 py-4 text-sm text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
+                  <input
+                    type="checkbox"
+                    name="isFeatured"
+                    checked={formData.isFeatured}
+                    onChange={handleChange}
+                    className="h-4 w-4 rounded"
+                  />
+                  Đánh dấu là dịch vụ nổi bật
+                </label>
               </div>
 
-              <InputField label="Danh mục" required>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
-                >
-                  {CATEGORY_OPTIONS.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </InputField>
-
-              <InputField label="Thumbnail từ máy tính">
-                <div className="rounded-2xl border border-dashed border-neutral-300 p-4 dark:border-neutral-700">
-                  <p className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-200">
-                    Chọn 1 ảnh thumbnail
-                  </p>
-                  <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
-                    Ảnh sẽ được nén và upload lên Cloudinary, giống flow gallery.
-                  </p>
-
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="w-full text-sm"
-                  />
-
-                  <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950">
-                    {thumbnailPreview ? (
-                      <img
-                        src={thumbnailPreview}
-                        alt="Thumbnail preview"
-                        className="h-56 w-full object-cover transition duration-500 hover:scale-[1.02]"
-                      />
-                    ) : (
-                      <div className="flex h-56 items-center justify-center text-sm text-neutral-400">
-                        Chưa chọn ảnh thumbnail
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </InputField>
-
-              <InputField label="Mô tả dịch vụ">
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Mô tả ngắn gọn về dịch vụ..."
-                  className="min-h-[120px] w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
-                />
-              </InputField>
-
-              <InputField label="Tính năng nổi bật">
-                <textarea
-                  name="features"
-                  value={formData.features}
-                  onChange={handleChange}
-                  placeholder="Makeup, Chỉnh màu, In ảnh... (cách nhau bởi dấu phẩy)"
-                  className="min-h-[100px] w-full rounded-2xl border border-neutral-200 px-4 py-3 transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
-                />
-              </InputField>
-
-              <label className="flex items-center gap-3 rounded-2xl border border-neutral-200 px-4 py-4 text-sm text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
-                <input
-                  type="checkbox"
-                  name="isFeatured"
-                  checked={formData.isFeatured}
-                  onChange={handleChange}
-                  className="h-4 w-4 rounded"
-                />
-                Đánh dấu là dịch vụ nổi bật
-              </label>
-
-              <div className="flex gap-3 pt-2">
+              <div className="mt-auto flex gap-3 pt-6">
                 <button
                   type="submit"
                   disabled={saving || uploading}
@@ -527,7 +501,7 @@ const AdminServicesPage = () => {
                   type="text"
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
-                  placeholder="Tìm theo tên, slug, category..."
+                  placeholder="Tìm theo tên, category..."
                   className="rounded-2xl border border-neutral-200 px-4 py-3 text-sm transition focus:border-yellow-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950"
                 />
 
@@ -556,7 +530,7 @@ const AdminServicesPage = () => {
                 {filteredServices.map((service) => (
                   <div
                     key={service._id}
-                    className="group overflow-hidden rounded-[24px] border border-neutral-200 bg-gradient-to-br from-white to-neutral-50 p-4 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg dark:border-neutral-800 dark:from-neutral-900 dark:to-neutral-950"
+                    className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-neutral-200 bg-gradient-to-br from-white to-neutral-50 p-4 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg dark:border-neutral-800 dark:from-neutral-900 dark:to-neutral-950"
                   >
                     <button
                       type="button"
@@ -570,9 +544,9 @@ const AdminServicesPage = () => {
                       />
                     </button>
 
-                    <div className="mt-4">
+                    <div className="mt-4 flex flex-1 flex-col">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-xl font-semibold">{service.name}</h3>
+                        <h3 className="break-words text-xl font-semibold">{service.name}</h3>
                         {service.isFeatured && (
                           <span className="rounded-full bg-yellow-100 px-2.5 py-1 text-xs font-medium text-yellow-800 ring-1 ring-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-300 dark:ring-yellow-500/30">
                             Nổi bật
@@ -584,7 +558,7 @@ const AdminServicesPage = () => {
                         {service.category}
                       </p>
 
-                      <p className="mt-3 line-clamp-3 text-sm text-neutral-600 dark:text-neutral-300">
+                      <p className="mt-3 line-clamp-3 break-words whitespace-pre-wrap text-sm text-neutral-600 dark:text-neutral-300">
                         {service.description}
                       </p>
 
@@ -592,23 +566,20 @@ const AdminServicesPage = () => {
                         {service.features?.map((feature) => (
                           <span
                             key={feature}
-                            className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"
+                            className="break-words rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"
                           >
                             {feature}
                           </span>
                         ))}
                       </div>
 
-                      <div className="mt-5 flex items-center justify-between gap-3">
+                      {/* Phần footer được đẩy xuống đáy nhờ mt-auto */}
+                      <div className="mt-auto flex items-center justify-between gap-3 pt-5">
                         <div>
                           <p className="text-lg font-bold text-yellow-700 dark:text-yellow-400">
-                            {formatCurrency(service.price || 0)}
-                          </p>
-                          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                            {service.duration || 0} phút
+                            {formatCurrency(service.price)}
                           </p>
                         </div>
-
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleEdit(service)}
@@ -639,10 +610,11 @@ const AdminServicesPage = () => {
           <div className="w-full max-w-4xl overflow-hidden rounded-3xl bg-white dark:bg-neutral-900">
             <div className="flex items-center justify-between border-b p-5 dark:border-neutral-800">
               <div>
-                <h2 className="text-2xl font-bold dark:text-white">{previewService.name}</h2>
+                <h2 className="break-words text-2xl font-bold dark:text-white">
+                  {previewService.name}
+                </h2>
                 <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                  {previewService.category} • {formatCurrency(previewService.price)} •{' '}
-                  {previewService.duration || 0} phút
+                  {previewService.category} • {formatCurrency(previewService.price)}
                 </p>
               </div>
 
@@ -673,7 +645,7 @@ const AdminServicesPage = () => {
                   )}
                 </div>
 
-                <p className="mt-4 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
+                <p className="mt-4 break-words whitespace-pre-wrap text-sm leading-6 text-neutral-600 dark:text-neutral-300">
                   {previewService.description || 'Không có mô tả'}
                 </p>
 
@@ -681,7 +653,7 @@ const AdminServicesPage = () => {
                   {previewService.features?.map((feature) => (
                     <span
                       key={feature}
-                      className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"
+                      className="break-words rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"
                     >
                       {feature}
                     </span>

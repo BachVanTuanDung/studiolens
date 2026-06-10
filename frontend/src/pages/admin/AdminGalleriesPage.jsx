@@ -7,29 +7,17 @@ import {
   getAllGalleries,
   updateGallery,
 } from '../../api/galleryApi'
-import { getAllBookings } from '../../api/bookingApi'
 import { searchUsers } from '../../api/userApi'
 
 const initialForm = {
   customerId: '',
-  bookingId: '',
   title: '',
   description: '',
-  status: 'published',
 }
 
 const CLOUD_NAME = 'dzhjqp5hh'
 const UPLOAD_PRESET = 'anh_test'
 const MAX_FILE_SIZE_MB = 10
-
-const statusBadgeMap = {
-  draft:
-    'bg-neutral-100 text-neutral-700 ring-1 ring-inset ring-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:ring-neutral-700',
-  published:
-    'bg-blue-100 text-blue-700 ring-1 ring-inset ring-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:ring-blue-500/30',
-  selected:
-    'bg-green-100 text-green-700 ring-1 ring-inset ring-green-200 dark:bg-green-500/15 dark:text-green-300 dark:ring-green-500/30',
-}
 
 const StatCard = ({ title, value, tone = 'neutral' }) => {
   const toneMap = {
@@ -61,7 +49,6 @@ const InputField = ({ label, children }) => (
 const AdminGalleriesPage = () => {
   const [galleries, setGalleries] = useState([])
   const [users, setUsers] = useState([])
-  const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -77,21 +64,18 @@ const AdminGalleriesPage = () => {
   const [viewerSource, setViewerSource] = useState('gallery')
 
   const [searchKeyword, setSearchKeyword] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
 
   const fetchData = async () => {
     try {
       setLoading(true)
 
-      const [galleryRes, userRes, bookingRes] = await Promise.all([
+      const [galleryRes, userRes] = await Promise.all([
         getAllGalleries(),
         searchUsers(),
-        getAllBookings(),
       ])
 
       setGalleries(galleryRes.data?.data || galleryRes.data?.galleries || [])
       setUsers(userRes.data?.data || userRes.data?.users || [])
-      setBookings(bookingRes.data?.bookings || bookingRes.data?.data || [])
     } catch (error) {
       console.error(error)
       toast.error(error.response?.data?.message || 'Không thể tải dữ liệu gallery')
@@ -125,32 +109,27 @@ const AdminGalleriesPage = () => {
 
   const stats = useMemo(() => {
     const total = galleries.length
-    const published = galleries.filter((item) => item.status === 'published').length
-    const selected = galleries.filter((item) => item.status === 'selected').length
     const totalImages = galleries.reduce(
       (sum, item) => sum + (Array.isArray(item.images) ? item.images.length : 0),
       0
     )
 
-    return { total, published, selected, totalImages }
+    return { total, totalImages }
   }, [galleries])
 
   const filteredGalleries = useMemo(() => {
     return galleries.filter((gallery) => {
       const keyword = searchKeyword.trim().toLowerCase()
 
-      const matchesKeyword =
+      return (
         !keyword ||
         gallery.title?.toLowerCase().includes(keyword) ||
         gallery.description?.toLowerCase().includes(keyword) ||
         gallery.customerId?.name?.toLowerCase().includes(keyword) ||
         gallery.customerId?.email?.toLowerCase().includes(keyword)
-
-      const matchesStatus = statusFilter === 'all' || gallery.status === statusFilter
-
-      return matchesKeyword && matchesStatus
+      )
     })
-  }, [galleries, searchKeyword, statusFilter])
+  }, [galleries, searchKeyword])
 
   const normalizeImage = (img, index) => {
     const imageUrl = typeof img === 'string' ? img : img.url
@@ -282,10 +261,8 @@ const AdminGalleriesPage = () => {
     setEditingId(gallery._id)
     setFormData({
       customerId: gallery.customerId?._id || gallery.customerId || '',
-      bookingId: gallery.bookingId?._id || gallery.bookingId || '',
       title: gallery.title || '',
       description: gallery.description || '',
-      status: gallery.status || 'published',
     })
     setImages(gallery.images || [])
     setSelectedFiles([])
@@ -316,10 +293,8 @@ const AdminGalleriesPage = () => {
 
       const payload = {
         customerId: formData.customerId,
-        bookingId: formData.bookingId || null,
         title: formData.title,
         description: formData.description,
-        status: formData.status,
         images: finalImages,
       }
 
@@ -407,10 +382,8 @@ const AdminGalleriesPage = () => {
 
         await updateGallery(previewGallery._id, {
           customerId: previewGallery.customerId?._id || previewGallery.customerId,
-          bookingId: previewGallery.bookingId?._id || previewGallery.bookingId || null,
           title: previewGallery.title,
           description: previewGallery.description,
-          status: previewGallery.status,
           images: nextGalleryImages,
         })
 
@@ -467,10 +440,8 @@ const AdminGalleriesPage = () => {
           </div>
         </div>
 
-        <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-8 grid gap-4 md:grid-cols-2">
           <StatCard title="Tổng gallery" value={stats.total} tone="neutral" />
-          <StatCard title="Đã xuất bản" value={stats.published} tone="blue" />
-          <StatCard title="Đã chọn ảnh" value={stats.selected} tone="green" />
           <StatCard title="Tổng số ảnh" value={stats.totalImages} tone="yellow" />
         </div>
 
@@ -510,22 +481,6 @@ const AdminGalleriesPage = () => {
                 </select>
               </InputField>
 
-              <InputField label="Booking liên kết">
-                <select
-                  name="bookingId"
-                  value={formData.bookingId}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-neutral-200 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-950"
-                >
-                  <option value="">Không liên kết booking</option>
-                  {bookings.map((booking) => (
-                    <option key={booking._id} value={booking._id}>
-                      {booking.bookingCode || booking._id} - {booking.date} - {booking.time}
-                    </option>
-                  ))}
-                </select>
-              </InputField>
-
               <InputField label="Tên album">
                 <input
                   name="title"
@@ -544,19 +499,6 @@ const AdminGalleriesPage = () => {
                   placeholder="Mô tả album"
                   className="min-h-[100px] w-full rounded-2xl border border-neutral-200 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-950"
                 />
-              </InputField>
-
-              <InputField label="Trạng thái">
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-neutral-200 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-950"
-                >
-                  <option value="draft">Bản nháp</option>
-                  <option value="published">Đã xuất bản</option>
-                  <option value="selected">Đã chọn</option>
-                </select>
               </InputField>
 
               <div className="rounded-2xl border border-dashed border-neutral-300 p-4 dark:border-neutral-700">
@@ -702,24 +644,13 @@ const AdminGalleriesPage = () => {
                 </p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="w-full max-w-sm">
                 <input
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
                   placeholder="Tìm theo tên album, khách hàng, email..."
-                  className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm dark:border-neutral-700 dark:bg-neutral-950 sm:w-80"
+                  className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm dark:border-neutral-700 dark:bg-neutral-950"
                 />
-
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="rounded-2xl border border-neutral-200 px-4 py-3 text-sm dark:border-neutral-700 dark:bg-neutral-950"
-                >
-                  <option value="all">Tất cả trạng thái</option>
-                  <option value="draft">draft</option>
-                  <option value="published">published</option>
-                  <option value="selected">selected</option>
-                </select>
               </div>
             </div>
 
@@ -735,8 +666,6 @@ const AdminGalleriesPage = () => {
               <div className="mt-6 space-y-5">
                 {filteredGalleries.map((gallery) => {
                   const coverImage = gallery.images?.[0]?.url || gallery.images?.[0]
-                  const badgeClass =
-                    statusBadgeMap[gallery.status] || statusBadgeMap.draft
 
                   return (
                     <div
@@ -773,11 +702,6 @@ const AdminGalleriesPage = () => {
                               <h3 className="text-xl font-semibold dark:text-white">
                                 {gallery.title}
                               </h3>
-                              <span
-                                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${badgeClass}`}
-                              >
-                                {gallery.status}
-                              </span>
                             </div>
 
                             <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">

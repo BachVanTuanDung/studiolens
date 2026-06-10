@@ -55,13 +55,26 @@ const ServiceDetailModal = ({ service, onClose }) => {
                 Chi tiết dịch vụ
               </p>
 
-              <h2 className="mt-3 text-3xl font-bold text-neutral-900 dark:text-white sm:text-4xl">
+              <h2 className="break-words mt-3 text-3xl font-bold text-neutral-900 dark:text-white sm:text-4xl">
                 {service.name}
               </h2>
 
-              <p className="mt-5 leading-8 text-neutral-600 dark:text-neutral-300">
+              <p className="break-words whitespace-pre-wrap mt-5 leading-8 text-neutral-600 dark:text-neutral-300">
                 {service.description || 'Dịch vụ được thiết kế chỉn chu, phù hợp cho những buổi chụp chuyên nghiệp và giàu cảm xúc.'}
               </p>
+
+              {service.features && service.features.length > 0 && (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {service.features.map((feature) => (
+                    <span
+                      key={feature}
+                      className="break-words rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"
+                    >
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <div className="rounded-2xl bg-neutral-50 px-4 py-4 dark:bg-white/5">
@@ -75,28 +88,10 @@ const ServiceDetailModal = ({ service, onClose }) => {
 
                 <div className="rounded-2xl bg-neutral-50 px-4 py-4 dark:bg-white/5">
                   <p className="text-xs uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
-                    Thời lượng
-                  </p>
-                  <p className="mt-2 text-lg font-bold text-neutral-900 dark:text-white">
-                    {service.duration || 0} phút
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-neutral-50 px-4 py-4 dark:bg-white/5">
-                  <p className="text-xs uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
                     Giá dịch vụ
                   </p>
                   <p className="mt-2 text-lg font-bold text-neutral-900 dark:text-white">
                     {formatCurrency(service.price)}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-neutral-50 px-4 py-4 dark:bg-white/5">
-                  <p className="text-xs uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
-                    Phù hợp cho
-                  </p>
-                  <p className="mt-2 text-lg font-bold text-neutral-900 dark:text-white">
-                    Chụp studio chuyên nghiệp
                   </p>
                 </div>
               </div>
@@ -332,33 +327,26 @@ const DiscoverPage = () => {
                         {featuredService.category || 'Service'}
                       </p>
 
-                      <h2 className="mt-3 text-3xl font-bold text-neutral-900 dark:text-white sm:text-4xl">
+                      <h2 className="break-words mt-3 text-3xl font-bold text-neutral-900 dark:text-white sm:text-4xl">
                         {featuredService.name}
                       </h2>
 
-                      <p className="mt-5 leading-8 text-neutral-600 dark:text-neutral-300">
+                      <p className="break-words whitespace-pre-wrap mt-5 leading-8 text-neutral-600 dark:text-neutral-300">
                         {featuredService.description || 'Gói dịch vụ được thiết kế chỉn chu, phù hợp để tạo nên bộ ảnh chuyên nghiệp và giàu cảm xúc.'}
                       </p>
 
-                      <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                        <div className="rounded-2xl bg-neutral-50 px-4 py-4 dark:bg-white/5">
-                          <p className="text-xs uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
-                            Thời lượng
-                          </p>
-                          <p className="mt-2 text-lg font-bold text-neutral-900 dark:text-white">
-                            {featuredService.duration || 0} phút
-                          </p>
+                      {featuredService.features && featuredService.features.length > 0 && (
+                        <div className="mt-5 flex flex-wrap gap-2">
+                          {featuredService.features.map((feature) => (
+                            <span
+                              key={feature}
+                              className="break-words rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"
+                            >
+                              {feature}
+                            </span>
+                          ))}
                         </div>
-
-                        <div className="rounded-2xl bg-neutral-50 px-4 py-4 dark:bg-white/5">
-                          <p className="text-xs uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
-                            Danh mục
-                          </p>
-                          <p className="mt-2 text-lg font-bold text-neutral-900 dark:text-white">
-                            {categoryLabels[featuredService.category] || featuredService.category || '--'}
-                          </p>
-                        </div>
-                      </div>
+                      )}
 
                       <div className="mt-8 flex flex-wrap gap-4">
                         <button
@@ -402,7 +390,7 @@ const DiscoverPage = () => {
                 {remainingServices.map((service) => (
                   <div
                     key={service._id}
-                    className="group overflow-hidden rounded-[28px] border border-black/5 bg-white/90 shadow-[0_12px_40px_rgba(15,23,42,0.05)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_55px_rgba(15,23,42,0.1)] dark:border-white/10 dark:bg-white/5"
+                    className="group flex h-full flex-col overflow-hidden rounded-[28px] border border-black/5 bg-white/90 shadow-[0_12px_40px_rgba(15,23,42,0.05)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_55px_rgba(15,23,42,0.1)] dark:border-white/10 dark:bg-white/5"
                   >
                     <div className="relative overflow-hidden">
                       <img
@@ -422,36 +410,29 @@ const DiscoverPage = () => {
                       </div>
                     </div>
 
-                    <div className="p-5">
-                      <h3 className="text-2xl font-bold text-neutral-900 dark:text-white">
+                    <div className="flex flex-1 flex-col p-5">
+                      <h3 className="break-words text-2xl font-bold text-neutral-900 dark:text-white">
                         {service.name}
                       </h3>
 
-                      <p className="mt-3 line-clamp-3 text-sm leading-7 text-neutral-600 dark:text-neutral-300">
+                      <p className="break-words whitespace-pre-wrap mt-3 line-clamp-3 text-sm leading-7 text-neutral-600 dark:text-neutral-300">
                         {service.description}
                       </p>
 
-                      <div className="mt-4 grid grid-cols-2 gap-3">
-                        <div className="rounded-2xl bg-neutral-50 px-4 py-3 dark:bg-white/5">
-                          <p className="text-xs uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
-                            Thời lượng
-                          </p>
-                          <p className="mt-1 text-sm font-semibold text-neutral-900 dark:text-white">
-                            {service.duration || 0} phút
-                          </p>
+                      {service.features && service.features.length > 0 && (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {service.features.map((feature) => (
+                            <span
+                              key={feature}
+                              className="break-words rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"
+                            >
+                              {feature}
+                            </span>
+                          ))}
                         </div>
+                      )}
 
-                        <div className="rounded-2xl bg-neutral-50 px-4 py-3 dark:bg-white/5">
-                          <p className="text-xs uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
-                            Giá dịch vụ
-                          </p>
-                          <p className="mt-1 text-sm font-semibold text-neutral-900 dark:text-white">
-                            {formatCurrency(service.price)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-6 flex items-center justify-between">
+                      <div className="mt-auto flex items-center justify-between pt-6">
                         <button
                           type="button"
                           onClick={() => setSelectedService(service)}

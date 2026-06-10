@@ -173,6 +173,25 @@ const bookingSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    // Thêm đoạn này vào bên trong new mongoose.Schema({ ... })
+    
+    editRequest: {
+      requestType: { 
+        type: String, 
+        enum: ['reschedule', 'cancel'], 
+        default: 'reschedule' 
+      },
+      status: { 
+        type: String, 
+        enum: ['none', 'pending', 'approved', 'rejected'], 
+        default: 'none' 
+      },
+      date: String,
+      session: String,
+      sessions: [String],
+      note: String,
+      requestedAt: Date
+    },
   },
   { timestamps: true }
 )

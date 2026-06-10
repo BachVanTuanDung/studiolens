@@ -13,9 +13,21 @@ const conceptSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+    // Vẫn giữ trường 'image' để không làm lỗi các dữ liệu cũ
     image: {
       type: String,
       required: true,
+    },
+    // THÊM TRƯỜNG NÀY ĐỂ LƯU DANH SÁCH ẢNH
+    images: {
+      type: [
+        {
+          url: { type: String, required: true },
+          publicId: { type: String },
+          caption: { type: String }
+        }
+      ],
+      default: [],
     },
     description: {
       type: String,
