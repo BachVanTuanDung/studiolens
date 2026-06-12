@@ -294,16 +294,16 @@ const AdminServicesPage = () => {
   }
 
   const handleDelete = async (id) => {
-    const confirmed = window.confirm('Bạn có chắc muốn ẩn dịch vụ này không?')
+    const confirmed = window.confirm('Bạn có chắc muốn xóa dịch vụ này không?')
     if (!confirmed) return
 
     try {
       await deleteService(id)
       setServices((prev) => prev.filter((item) => item._id !== id))
-      toast.success('Đã ẩn dịch vụ')
+      toast.success('Đã xóa dịch vụ')
     } catch (error) {
       console.error(error)
-      toast.error(error.response?.data?.message || 'Ẩn dịch vụ thất bại')
+      toast.error(error.response?.data?.message || 'Xóa dịch vụ thất bại')
     }
   }
 
@@ -592,7 +592,7 @@ const AdminServicesPage = () => {
                             onClick={() => handleDelete(service._id)}
                             className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
                           >
-                            Ẩn
+                            Xóa
                           </button>
                         </div>
                       </div>

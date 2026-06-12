@@ -356,15 +356,15 @@ const AdminConceptsPage = () => {
   }
 
   const handleDelete = async (id) => {
-    const confirmed = window.confirm('Bạn có chắc muốn ẩn concept này không?')
+    const confirmed = window.confirm('Bạn có chắc muốn xóa concept này không?')
     if (!confirmed) return
     try {
       await deleteConcept(id)
       setConcepts((prev) => prev.filter((item) => item._id !== id))
-      toast.success('Đã ẩn concept')
+      toast.success('Đã xóa concept')
     } catch (error) {
       console.error(error)
-      toast.error(error.response?.data?.message || 'Ẩn concept thất bại')
+      toast.error(error.response?.data?.message || 'Xóa concept thất bại')
     }
   }
 
@@ -810,7 +810,7 @@ const AdminConceptsPage = () => {
                             onClick={() => handleDelete(concept._id)}
                             className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
                           >
-                            Ẩn
+                            Xóa
                           </button>
                         </div>
                       </div>
