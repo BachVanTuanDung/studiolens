@@ -75,7 +75,6 @@ const getImagesPool = (categoryKey) => {
   return categoryImages.portrait
 }
 
-// Tạo mảng ảnh dạng Object (đã sửa để khớp cấu trúc ảnh của Concept và Gallery)
 const makeImages = (bookingCode, categoryKey, count = 5, offset = 0) => {
   const pool = getImagesPool(categoryKey)
   return Array.from({ length: count }).map((_, index) => {
@@ -91,46 +90,37 @@ const makeImages = (bookingCode, categoryKey, count = 5, offset = 0) => {
   })
 }
 
-// 1. TẠO 3 TÀI KHOẢN (1 Admin, 2 User)
+// 1. TẠO 2 TÀI KHOẢN (1 Admin, 1 User Bùi Thị Nhật Lệ)
 const usersSeed = [
-  ['Admin StudioLens', 'admin@gmail.com', 'admin', '0900000001', 'Hoàn Kiếm, Hà Nội'],
-  ['Cô Dâu Minh Anh', 'minhanh.wedding@gmail.com', 'user', '0912345001', 'Cầu Giấy, Hà Nội'],
-  ['Hotgirl Thu Hà', 'thuha.beauty@gmail.com', 'user', '0912345003', 'Ba Đình, Hà Nội'],
+  ['Admin StudioLens', 'admin@studiolens.com', 'admin', '0900000001', 'Hà Nội'],
+  ['Bùi Thị Nhật Lệ', 'nhatle@gmail.com', 'user', '0912345678', 'Hà Nội'],
 ]
 
-// 2. TẠO 6 DỊCH VỤ (Đã bỏ duration, slug tự generate ngầm nếu model cần)
+// 2. TẠO 5 DỊCH VỤ
 const servicesSeed = [
-  ['Phóng sự cưới cao cấp', 6500000, 'wedding', 'Bắt trọn cảm xúc tự nhiên nhất trong ngày trọng đại.', true, categoryImages.wedding[0]],
-  ['Chụp ảnh Pre-wedding', 8000000, 'wedding', 'Hỗ trợ váy cưới và makeup chuyên nghiệp.', true, categoryImages.wedding[1]],
-  ['Chụp Beauty / Nàng thơ', 2500000, 'portrait', 'Tôn vinh đường nét khuôn mặt với ánh sáng setup tinh tế.', true, categoryImages.portrait[0]],
-  ['Chụp ảnh Kỷ yếu thanh xuân', 3500000, 'event', 'Ghi lại khoảnh khắc thanh xuân rực rỡ.', false, categoryImages.event[0]],
-  ['Chụp Gia đình / Kỷ niệm', 3000000, 'family', 'Lưu giữ nụ cười và sự gắn kết của các thành viên.', false, categoryImages.family[0]],
-  ['Chụp Sự kiện doanh nghiệp', 4500000, 'event', 'Phong cách chuyên nghiệp, trang trọng.', false, categoryImages.event[1]],
+  ['Chụp Nàng Thơ / Beauty', 2500000, 'portrait', 'Tôn vinh vẻ đẹp tự nhiên, đường nét thanh tú.', true, categoryImages.portrait[0]],
+  ['Chụp ảnh Cưới Pre-wedding', 8000000, 'wedding', 'Lưu giữ khoảnh khắc tình yêu đẹp nhất.', true, categoryImages.wedding[0]],
+  ['Chụp Kỷ yếu nhóm bạn', 3500000, 'event', 'Ghi lại tuổi thanh xuân rực rỡ.', false, categoryImages.event[0]],
+  ['Chụp Gia đình kỷ niệm', 3000000, 'family', 'Những nụ cười hạnh phúc bên người thân.', false, categoryImages.family[0]],
+  ['Chụp Sự kiện Cá nhân', 4000000, 'event', 'Phóng sự sinh nhật, tiệc kỷ niệm.', false, categoryImages.event[1]],
 ]
 
-// 3. TẠO 6 CONCEPT (Đã bỏ slug, hỗ trợ mảng 'images' gồm 2-3 ảnh)
+// 3. TẠO 5 CONCEPT
 const conceptsSeed = [
-  ['Cinematic / Điện ảnh', 'dark', 'Màu sắc trầm ấm, mang lại cảm giác như một bộ phim.', true, [categoryImages.wedding[2], categoryImages.portrait[2]]],
-  ['Trong trẻo / Tự nhiên', 'minimal', 'Ánh sáng tự nhiên, tone màu trong trẻo.', true, [categoryImages.portrait[1], categoryImages.portrait[0]]],
-  ['Vintage / Hoài cổ', 'vintage', 'Màu film ấm áp, nhiễu hạt nhẹ (grain).', true, [categoryImages.event[2], categoryImages.portrait[1]]],
-  ['Studio Hàn Quốc', 'studio', 'Phông nền trơn tối giản, tập trung vào chủ thể.', false, [categoryImages.family[1], categoryImages.family[2]]],
-  ['Luxury / Sang trọng', 'editorial', 'Đánh khối mạnh mẽ, thích hợp tiệc đêm, sự kiện.', false, [categoryImages.event[0], categoryImages.wedding[0]]],
-  ['Outdoor / Dã ngoại', 'outdoor', 'Chụp ngoại cảnh bắt trọn ánh sáng tự nhiên.', false, [categoryImages.family[0], categoryImages.portrait[2]]],
+  ['Trong trẻo / Tự nhiên', 'minimal', 'Ánh sáng tự nhiên, tone màu trong trẻo nhẹ nhàng.', true, [categoryImages.portrait[1], categoryImages.portrait[0]]],
+  ['Studio Hàn Quốc', 'studio', 'Phông nền trơn tối giản, nổi bật chủ thể.', true, [categoryImages.family[1], categoryImages.family[2]]],
+  ['Cinematic / Điện ảnh', 'dark', 'Màu sắc trầm ấm, mang cảm giác hoài niệm.', false, [categoryImages.wedding[2], categoryImages.portrait[2]]],
+  ['Vintage / Film', 'vintage', 'Tone màu film xưa cũ, đầy cảm xúc.', false, [categoryImages.event[2], categoryImages.portrait[1]]],
+  ['Outdoor / Dã ngoại', 'outdoor', 'Chụp tại các địa điểm ngoài trời thoáng đãng.', false, [categoryImages.family[0], categoryImages.portrait[2]]],
 ]
 
-// 4. TẠO 6 LỊCH BOOKING (Cho 2 User)
+// 4. TẠO 3 LỊCH BOOKING (Tất cả thuộc về Bùi Thị Nhật Lệ - index 1)
 const bookingRaw = [
-  // Của User 1 (Minh Anh - Index 1)
-  ['BK202605001', 1, 0, 0, '2026-05-15', ['morning', 'afternoon'], 'confirmed', 'bank_qr', 'paid', 'Gói phóng sự cưới.'],
-  ['BK202605002', 1, 1, 2, '2026-05-10', ['afternoon', 'evening'], 'completed', 'cash', 'paid', 'Chụp Pre-wedding.'],
-  ['BK202605003', 1, 4, 3, '2026-06-01', ['morning'], 'pending', 'cash', 'unpaid', 'Chụp gia đình.'],
-  // Của User 2 (Thu Hà - Index 2)
-  ['BK202605004', 2, 2, 1, '2026-05-12', ['morning'], 'completed', 'bank_qr', 'paid', 'Khách makeup sẵn.'],
-  ['BK202605005', 2, 3, 2, '2026-05-18', ['morning', 'afternoon'], 'confirmed', 'bank_qr', 'pending', 'Chụp kỷ yếu.'],
-  ['BK202605006', 2, 5, 4, '2026-06-05', ['evening'], 'completed', 'bank_qr', 'paid', 'Chụp event doanh nghiệp.'],
+  ['BK202607001', 1, 0, 0, '2026-07-15', ['morning'], 'completed', 'bank_qr', 'paid', 'Chụp concept nàng thơ tại studio.'],
+  ['BK202607002', 1, 3, 1, '2026-07-20', ['afternoon'], 'confirmed', 'cash', 'paid', 'Chụp gia đình phông trơn Hàn Quốc.'],
+  ['BK202608001', 1, 2, 4, '2026-08-10', ['morning', 'afternoon'], 'pending', 'bank_qr', 'unpaid', 'Chụp kỷ yếu nhóm ngoại cảnh.'],
 ]
 
-// HÀM TẠO SLUG TỰ ĐỘNG NẾU MODEL VẪN CẦN
 const generateSlug = (str) => {
   return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
 }
@@ -148,38 +138,37 @@ const seedData = async () => {
       Conversation ? Conversation.deleteMany({}) : Promise.resolve(), Message ? Message.deleteMany({}) : Promise.resolve(),
     ])
 
-    console.log('Đang tạo Users (3 tài khoản)...')
+    console.log('Đang tạo Users (2 tài khoản)...')
     const users = await User.create(
       usersSeed.map(([name, email, role, phone, address], index) => ({
         name, email, role, phone, address, password: '123456', isEmailVerified: true, avatar: categoryImages.portrait[index % 3],
       }))
     )
 
-    console.log('Đang tạo Services (6 dịch vụ)...')
+    console.log('Đang tạo Services (5 dịch vụ)...')
     const services = await Service.insertMany(
       servicesSeed.map(([name, price, category, description, isFeatured, thumbnail]) => ({
         name, slug: generateSlug(name), price, description, category, thumbnail,
-        features: ['Tư vấn Concept', 'Hỗ trợ makeup nhẹ', 'Trả toàn bộ file gốc', 'Chỉnh sửa kỹ 20-30 ảnh'],
+        features: ['Tư vấn Concept', 'Hỗ trợ trang phục', 'Trả toàn bộ file gốc', 'Chỉnh sửa kỹ 20 ảnh'],
         isFeatured, isActive: true, extraSessionRate: 0.5, allowMultiSession: true,
       }))
     )
 
-    console.log('Đang tạo Concepts (6 concept)...')
+    console.log('Đang tạo Concepts (5 concept)...')
     const concepts = await Concept.insertMany(
       conceptsSeed.map(([name, category, description, isFeatured, imgsUrls], index) => {
-        // Tạo mảng Object ảnh cho Concept
         const imgObjects = imgsUrls.map((url, i) => ({ url, publicId: `concept_${index}_${i}`, caption: `${name} ${i+1}` }))
         return {
           name, slug: generateSlug(name), description, category, tags: [category, 'chup-anh', 'studiolens'],
-          image: imgObjects[0].url, // Vẫn lưu ảnh đầu để tương thích schema cũ
-          images: imgObjects, // Mảng ảnh mới hiển thị Grid
-          relatedServices: [services[index]._id], // Liên kết 1 dịch vụ
+          image: imgObjects[0].url,
+          images: imgObjects,
+          relatedServices: [services[index]._id],
           isFeatured, isActive: true,
         }
       })
     )
 
-    console.log('Đang tạo Bookings (6 lịch)...')
+    console.log('Đang tạo Bookings (3 lịch)...')
     const bookings = await Booking.insertMany(
       bookingRaw.map(([bookingCode, userIndex, serviceIndex, conceptIndex, date, sessions, status, paymentMethod, paymentStatus, note], index) => {
         const user = users[userIndex]; const service = services[serviceIndex]; const concept = concepts[conceptIndex]
@@ -189,13 +178,14 @@ const seedData = async () => {
           date, session: sessions[0], sessions, time: SESSION_TIME_MAP[sessions[0]] || '09:00',
           status, paymentMethod, paymentStatus, totalPrice, note: `${note} Tổng tiền: ${formatMoney(totalPrice)}.`,
           paidAt: paymentStatus === 'paid' ? new Date(`${date}T10:15:00.000Z`) : null,
-          assignedStaff: index % 2 === 0 ? ['Tuấn'] : ['Dũng'],
+          assignedStaff: ['Tuấn', 'Dũng'],
         }
       })
     )
 
-    console.log('Đang tạo Galleries (5 ảnh gửi khách, 5 ảnh chọn)...')
-    const galleryBookings = bookings.filter((b) => ['completed', 'confirmed'].includes(b.status))
+    console.log('Đang tạo Galleries (2 danh sách ảnh gửi khách)...')
+    // Lọc ra đúng 2 booking đã thanh toán/hoàn thành để tạo Gallery
+    const galleryBookings = bookings.filter((b) => ['completed', 'confirmed'].includes(b.status)).slice(0, 2)
     const galleries = []
 
     for (let i = 0; i < galleryBookings.length; i += 1) {
@@ -203,44 +193,41 @@ const seedData = async () => {
       const user = users.find((u) => u._id.toString() === booking.userId.toString())
       const service = services.find((s) => s._id.toString() === booking.serviceId.toString())
       
-      // Tạo ĐÚNG 5 ảnh gửi khách
       const images = makeImages(booking.bookingCode, service.category, 5, i)
 
       const gallery = await Gallery.create({
         customerId: user._id, userId: user._id, bookingId: booking._id,
-        title: `Album ${service.name}`, description: `Vui lòng chọn ảnh cần pts kỹ.`,
+        title: `Album ${service.name}`, description: `Chị Lệ chọn ảnh cần PTS tại đây nhé.`,
         images, coverImage: images[0].url, status: 'published', isActive: true,
       })
       galleries.push(gallery)
 
-      // Tạo ĐÚNG 5 ảnh khách đã chọn (chọn hết cả 5)
       await SelectedImages.create({
         customerId: user._id, userId: user._id, galleryId: gallery._id, bookingId: booking._id,
         selectedImages: images,
-        images: images.map((img, idx) => ({ ...img, note: idx === 0 ? 'Chỉnh eo nhỏ lại.' : '' })),
-        note: 'Em đã chọn đủ 5 ảnh, anh chị chỉnh sửa giúp em.',
-        status: i % 2 === 0 ? 'submitted' : 'editing',
+        images: images.map((img, idx) => ({ ...img, note: idx === 0 ? 'Kéo màu sáng lên chút.' : '' })),
+        note: 'Mình đã chọn đủ 5 ảnh, bạn chỉnh giúp mình.',
+        status: i === 0 ? 'submitted' : 'editing',
         submittedAt: new Date(),
       })
     }
 
     if (Conversation && Message) {
-      console.log('Đang tạo Conversations (2 đoạn chat)...')
+      console.log('Đang tạo Conversations (1 đoạn chat)...')
       try {
-        const admin = users[0]; const user1 = users[1]; const user2 = users[2];
+        const admin = users[0]; const userLe = users[1];
         
-        // Chat 1: Admin và Minh Anh
-        const conv1 = await Conversation.create({ userId: user1._id, adminId: admin._id, lastMessage: 'Dạ chị yên tâm ạ.', lastMessageAt: new Date(), userUnreadCount: 0, adminUnreadCount: 0 })
+        // Chat 1: Admin và Bùi Thị Nhật Lệ
+        const conv1 = await Conversation.create({ 
+          userId: userLe._id, adminId: admin._id, 
+          lastMessage: 'Dạ mình ghi nhận thông tin rồi ạ.', 
+          lastMessageAt: new Date(), userUnreadCount: 0, adminUnreadCount: 0 
+        })
         await Message.insertMany([
-          { conversationId: conv1._id, senderId: user1._id, senderRole: 'user', content: 'Gói phóng sự cưới có bao gồm váy không?', messageType: 'text', isRead: true },
-          { conversationId: conv1._id, senderId: admin._id, senderRole: 'admin', content: 'Dạ không bao gồm váy nhưng được giảm 20% khi thuê bên đối tác ạ.', messageType: 'text', isRead: true }
-        ])
-
-        // Chat 2: Admin và Thu Hà
-        const conv2 = await Conversation.create({ userId: user2._id, adminId: admin._id, lastMessage: 'Em check lịch nhé.', lastMessageAt: new Date(), userUnreadCount: 0, adminUnreadCount: 0 })
-        await Message.insertMany([
-          { conversationId: conv2._id, senderId: user2._id, senderRole: 'user', content: 'Cuối tuần này em muốn đổi lịch chụp được không ạ?', messageType: 'text', isRead: true },
-          { conversationId: conv2._id, senderId: admin._id, senderRole: 'admin', content: 'Dạ để em kiểm tra lại lịch trống cuối tuần nhé.', messageType: 'text', isRead: true }
+          { conversationId: conv1._id, senderId: userLe._id, senderRole: 'user', content: 'Chào shop, gói chụp nàng thơ có kèm trang điểm không?', messageType: 'text', isRead: true },
+          { conversationId: conv1._id, senderId: admin._id, senderRole: 'admin', content: 'Chào chị Lệ, dạ gói nàng thơ bên em đã hỗ trợ trang điểm nhẹ nhàng rồi ạ.', messageType: 'text', isRead: true },
+          { conversationId: conv1._id, senderId: userLe._id, senderRole: 'user', content: 'Oke bạn, vậy để mình đặt lịch.', messageType: 'text', isRead: true },
+          { conversationId: conv1._id, senderId: admin._id, senderRole: 'admin', content: 'Dạ mình ghi nhận thông tin rồi ạ. Chị cứ thao tác đặt lịch trên web nhé.', messageType: 'text', isRead: true }
         ])
       } catch (error) { console.warn('Lỗi seed Chat:', error.message) }
     }
@@ -248,15 +235,14 @@ const seedData = async () => {
     console.log('\n================================')
     console.log('🎉 TẠO DỮ LIỆU ĐỒ ÁN THÀNH CÔNG!')
     console.log('================================')
-    console.log(`👤 Users    : ${users.length} (1 Admin, 2 User)`)
-    console.log(`📸 Services : ${services.length}`)
-    console.log(`✨ Concepts : ${concepts.length}`)
-    console.log(`📅 Bookings : ${bookings.length}`)
+    console.log(`👤 Users    : ${users.length} (1 Admin, 1 User: Bùi Thị Nhật Lệ)`)
+    console.log(`📸 Services : ${services.length} dịch vụ`)
+    console.log(`✨ Concepts : ${concepts.length} concept`)
+    console.log(`📅 Bookings : ${bookings.length} lịch`)
     console.log(`🖼️ Galleries: ${galleries.length} (Mỗi gallery 5 ảnh)`)
     console.log('--------------------------------')
-    console.log('Tài khoản Admin: admin@gmail.com / 123456')
-    console.log('Tài khoản User 1: minhanh.wedding@gmail.com / 123456')
-    console.log('Tài khoản User 2: thuha.beauty@gmail.com / 123456')
+    console.log('Tài khoản Admin: admin@studiolens.com / 123456')
+    console.log('Tài khoản User : nhatle@gmail.com / 123456')
     console.log('================================\n')
 
     await mongoose.connection.close()
