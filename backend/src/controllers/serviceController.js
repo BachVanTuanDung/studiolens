@@ -1,5 +1,18 @@
 import Service from '../models/Service.js'
 
+// Hàm hỗ trợ tự động tạo slug từ tên dịch vụ (VD: "Chụp ảnh cưới" -> "chup-anh-cuoi")
+const generateSlug = (str) => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
 export const getServices = async (req, res) => {
   try {
     const { category, keyword } = req.query
@@ -30,7 +43,14 @@ export const getServiceById = async (req, res) => {
 
 export const createService = async (req, res) => {
   try {
-    const service = await Service.create(req.body)
+    const data = { ...req.body }
+    
+    // Tự động sinh slug nếu có tên dịch vụ mà frontend không gửi slug lên
+    if (data.name && !data.slug) {
+      data.slug = generateSlug(data.name)
+    }
+
+    const service = await Service.create(data)
     res.status(201).json({ success: true, data: service })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
@@ -39,7 +59,14 @@ export const createService = async (req, res) => {
 
 export const updateService = async (req, res) => {
   try {
-    const service = await Service.findByIdAndUpdate(req.params.id, req.body, { new: true })
+    const data = { ...req.body }
+    
+    // Nếu người dùng đổi tên dịch vụ, cập nhật luôn lại slug cho chuẩn
+    if (data.name && !data.slug) {
+      data.slug = generateSlug(data.name)
+    }
+
+    const service = await Service.findByIdAndUpdate(req.params.id, data, { new: true })
     if (!service) {
       return res.status(404).json({ success: false, message: 'Không tìm thấy dịch vụ' })
     }
