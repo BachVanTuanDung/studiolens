@@ -673,7 +673,9 @@ const AdminGalleriesPage = () => {
                       className="overflow-hidden rounded-[24px] border border-neutral-200 bg-gradient-to-r from-white to-neutral-50 p-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg dark:border-neutral-800 dark:from-neutral-900 dark:to-neutral-950"
                     >
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="flex gap-4">
+                        
+                        {/* 1. THÊM flex-1 VÀ min-w-0 VÀO THẺ BỌC TRÁI (Ảnh + Nội dung) */}
+                        <div className="flex flex-1 min-w-0 gap-4">
                           <button
                             type="button"
                             onClick={() => setPreviewGallery(gallery)}
@@ -699,12 +701,14 @@ const AdminGalleriesPage = () => {
 
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-xl font-semibold dark:text-white">
+                              {/* Cắt đuôi text bằng truncate nếu tiêu đề quá dài */}
+                              <h3 className="truncate text-xl font-semibold dark:text-white">
                                 {gallery.title}
                               </h3>
                             </div>
 
-                            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+                            {/* 2. THÊM line-clamp-2 ĐỂ GIỚI HẠN HIỂN THỊ MÔ TẢ TRONG 2 DÒNG */}
+                            <p className="mt-2 line-clamp-2 text-sm text-neutral-600 dark:text-neutral-300">
                               {gallery.description || 'Không có mô tả'}
                             </p>
 
@@ -731,7 +735,8 @@ const AdminGalleriesPage = () => {
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-2">
+                        {/* 3. THÊM shrink-0 VÀ BỎ flex-wrap ĐỂ CÁC NÚT LUÔN TRÊN 1 HÀNG */}
+                        <div className="flex shrink-0 gap-2">
                           <button
                             type="button"
                             onClick={() => setPreviewGallery(gallery)}
@@ -765,6 +770,7 @@ const AdminGalleriesPage = () => {
           </div>
         </div>
 
+        {/* --- Phần Modal Code (Giữ nguyên) --- */}
         {previewGallery && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
             <div className="max-h-[90vh] w-full max-w-6xl overflow-hidden rounded-3xl bg-white dark:bg-neutral-900">
